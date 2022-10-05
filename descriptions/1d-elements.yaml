@@ -1,0 +1,51 @@
+- dimension: 1
+- static properties:
+  - TILE: # func is_TILE, enum {TILE, NOT_TILE}
+    - params:
+      - position: int
+    - true range:
+      - [[-10, 10]]
+  - CHECKPOINT:
+    - params:
+      - position: int
+    - true range:
+      - [[0, 0]]
+  - WALL:
+    - params:
+      - position:
+    - false range:
+      - [[-10, 10]]
+- robot: # programmable agent
+  - state:
+    - position: 
+      - {range(-10,10)}
+      - init: [[0]]
+    - action: 
+      - {Left, Right, None}
+      - init: LEFT
+  # - observation:
+  #   - range: [[-3, 3]] 
+    ## can see from current_position-3 to current_position+3
+  - policy:
+    - "if (cond) { statement }"
+    - ...
+    - ...
+    - ...
+- person: # environment agent
+  - state:
+    - position: 
+      - {range(-10,10)}
+      - init: [[0]]
+    - action: 
+      - {Left, Right, None}
+      - init: LEFT
+  # - observation:
+  #   - range: [[-3, 3]] 
+    ## can see from current_position-3 to current_position+3
+  - policy: ## for now hardcode on time
+    - "if (cond) { statement }"
+    - ...
+    - ...
+    - ...
+- safety specifications: ## always holds
+  - 
