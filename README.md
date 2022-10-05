@@ -24,14 +24,27 @@ tar -xvzf "apache-maven-3.8.6-bin.tar.gz"
 mv "apache-maven-3.8.6/" "$HOME"
 ```
 
+### Set up LTL2BA
+
+- Get LTL2BA from [here](http://www.lsv.fr/~gastin/ltl2ba/ltl2ba-1.3.tar.gz) and extract it in the home directory.
+```bash
+wget "http://www.lsv.fr/~gastin/ltl2ba/ltl2ba-1.3.tar.gz"
+tar -xvzf "ltl2ba-1.3.tar.gz"
+cd ltl2ba-1.3
+make
+cd ..
+mv "ltl2ba-1.3" "$HOME"
+```
+
 - Add the following lines at the end of your `~/.bashrc` file, and then run `source ~/.bashrc`:
 ```bash
 JAVA_HOME="$HOME/jdk-11.0.16"
 MAVEN_HOME="$HOME/apache-maven-3.8.6"
-
-PATH="$JAVA_HOME/bin:$MAVEN_HOME/bin:$PATH"
+LTL2BA_HOME="$HOME/ltl2ba-1.3"
+PATH="$LTL2BA_HOME:$JAVA_HOME/bin:$MAVEN_HOME/bin:$PATH"
 
 export PATH
+export LTL2BA_HOME
 export MAVEN_PATH
 export JAVA_PATH
 export JRE_HOME
