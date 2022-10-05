@@ -1,8 +1,36 @@
 {
     "dimensions": 1,
     "position properties": [
-        {"name": "TILE", "type": true, "ranges": [[[-10, 10]]]},
-        {"name": "CHECKPOINT", "type": true, "ranges": [[[0, 0]]]},
-        {"name": "WALL", "type": false, "ranges": [[[-10, 10]]]}
-    ]
+        {"name": "TILE", 
+            "include": true, 
+            "ranges": [[[-10, 10]]]},
+        {"name": "CHECKPOINT", 
+            "include": true, 
+            "ranges": [[[0, 0]]]},
+        {"name": "WALL", 
+            "include": false, 
+            "ranges": [[[-10, 10]]]}
+    ],
+    "type interpretations": [
+        {"name": "action", 
+            "type": "enum", 
+            "range": [
+                {"name": "LEFT"},
+                {"name": "RIGHT"},
+                {"name": "NONE"}
+            ]
+        }
+    ],
+    "robot": {
+        "state": {
+            "position": {
+                "type": "int",
+                "init": "random"
+            },
+            "action": {
+                "type": "action",
+                "init": "LEFT"
+            }
+        }
+    }
 }
