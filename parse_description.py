@@ -67,7 +67,8 @@ for key in config.keys():
                             cond.append(f"(x >= {rnge[dim][0]} && x <= {rnge[dim][1]})")
                 func.add_code([
                     "int x = __VERIFIER_nondet_int();",
-                    f"__VERIFIER_assume(({' || '.join(cond)}));"
+                    f"__VERIFIER_assume(({' || '.join(cond)}));",
+                    "return x;"
                 ])
                 cw.add_function_definition(func)
                 cw.add_line("")
@@ -99,14 +100,29 @@ func_update.add_code(["if (robot_state_act == LEFT) robot_state_pos = robot_stat
 cw.add_function_definition(func_update)
 cw.add_line("")
 
+func_precompute = Function('precompute', 'void')
+varlist = []
+for comps in config['precompute']:
+    var = Variable(comps['name'], comps['type'])
+    varlist.append(var.generate_declaration() + ";")
+    func_precompute.add_code([f"{comps['name']} = {comps['exp']};"])
+cw.add_lines(varlist)
+cw.add_line("")
+cw.add_function_definition(func_precompute)
+cw.add_line("")
+
 func_main = Function('main', 'int')
 func_main.add_code([
     "initialize();",
+    "precompute();",
     "while (1) {",
-    "   policy();",
-    "   update();",
-    "}"
+    "    policy();",
+    "    update();",
+    "    precompute();",
 ])
+for spec in config['specification']:
+    func_main.add_code(f"    {spec}")
+func_main.add_code("}")
 cw.add_function_definition(func_main)
 cw.add_line("")
 

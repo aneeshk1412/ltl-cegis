@@ -32,12 +32,17 @@
                 "init": "LEFT"}
         ],
         "policy": [
-            "if (robot_state_act == LEFT) robot_state_act = RIGHT;",
-            "if (robot_state_act == RIGHT) robot_state_act = LEFT;",
+            "if (robot_state_act == LEFT) { robot_state_act = RIGHT; return; }",
+            "if (robot_state_act == RIGHT) { robot_state_act = LEFT; return; }",
             "robot_state_act = LEFT;"
         ]
     },
+    "precompute": [
+        {"name": "check_wall_robot_state_pos", 
+            "type": "int",
+            "exp": "check_WALL(robot_state_pos)"}
+    ],
     "specification": [
-        "//@ assert (check_WALL(robot_state_pos) == 0)"
+        "//@ assert (check_wall_robot_state_pos == 0);"
     ]
 }
