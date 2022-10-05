@@ -1,0 +1,2 @@
+csnake==0.3.5
+PyYAML==6.0

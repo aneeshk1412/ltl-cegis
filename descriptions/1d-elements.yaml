@@ -1,6 +1,6 @@
 - dimension: 1
 - static properties:
-  - TILE: # func is_TILE, enum {TILE, NOT_TILE}
+  - TILE:
     - params:
       - position: int
     - true range:
@@ -12,7 +12,7 @@
       - [[0, 0]]
   - WALL:
     - params:
-      - position:
+      - position: int
     - false range:
       - [[-10, 10]]
 - robot: # programmable agent

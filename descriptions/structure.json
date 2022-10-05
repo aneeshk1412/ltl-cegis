@@ -1,0 +1,8 @@
+{
+    "dimensions": 1,
+    "position properties": [
+        {"name": "TILE", "type": true, "ranges": [[[-10, 10]]]},
+        {"name": "CHECKPOINT", "type": true, "ranges": [[[0, 0]]]},
+        {"name": "WALL", "type": false, "ranges": [[[-10, 10]]]}
+    ]
+}
