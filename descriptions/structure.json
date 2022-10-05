@@ -22,15 +22,22 @@
         }
     ],
     "robot": {
-        "state": {
-            "position": {
-                "type": "int",
-                "init": "random"
-            },
-            "action": {
-                "type": "action",
-                "init": "LEFT"
-            }
-        }
-    }
+        "state": [
+            {"name": "pos", 
+                "type": "int", 
+                "init": "random",
+                "rand_ranges": [[[-10,-5]], [[5,10]]]},
+            {"name": "act",
+                "type": "action", 
+                "init": "LEFT"}
+        ],
+        "policy": [
+            "if (robot_state_act == LEFT) robot_state_act = RIGHT;",
+            "if (robot_state_act == RIGHT) robot_state_act = LEFT;",
+            "robot_state_act = LEFT;"
+        ]
+    },
+    "specification": [
+        "//@ assert (check_WALL(robot_state_pos) == 0)"
+    ]
 }
