@@ -1,0 +1,33 @@
+
+Environment:
+	dimension: 1
+	tile: [0, 10] // all positions from 0 to 10 are tile, everything else is NOT tile
+	wall: ~ ([0, 10])
+	actions: {LEFT, RIGHT, NONE}
+
+
+Demonstrations:
+- (4, RIGHT), (5, LEFT), (4, RIGHT), (5, LEFT), (4, RIGHT), (5, LEFT), (4, RIGHT)
+- (7, LEFT), (6, RIGHT), (7, LEFT), (6, RIGHT)
+- (4, RIGHT), (5, LEFT), (4, RIGHT), (5, LEFT), (4, RIGHT)
+..
+
+
+
+Ground Truth ASP:
+if (check(WALL, robot_pos + 1)) {
+	return action.LEFT;
+}
+if (check(WALL, robot_pos - 1)) {
+	return action.RIGHT;
+}
+if (robot_action == action.LEFT) {
+	return action.RIGHT;
+}
+if (robot_action == action.RIGHT) {
+	return action.LEFT;
+}
+
+
+Specification:
+- [](~ check(WALL, robot_pos))
