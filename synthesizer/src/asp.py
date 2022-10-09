@@ -28,33 +28,6 @@ class ASP:
     def add_transition_cond_pair(self, b, a):
         self.transition_cond_pairs.add((b, a))
 
-    def run_tests(self) -> None:
-        pos1 = Pos('from_int', [12])
-        print(pos1.pretty_str())
-        pos2 = Pos('agent_pos', [9])
-        print(pos2.pretty_str())
-        pos3 = Pos('robot_pos', [])
-        print(pos3.pretty_str())
-        print('---')
-        exp0 = Exp('from_pos', [pos3])
-        print(exp0.pretty_str())
-        exp1 = Exp('from_int', [99])
-        print(exp1.pretty_str())
-        exp2 = Exp('absolute', [exp1])
-        print(exp2.pretty_str())
-        exp3 = Exp('bin_op', ['+', exp0, exp1])
-        print(exp3.pretty_str())
-        print('---')
-        bexp0 = BExp('bin_op', ['eq', pos3, exp1])
-        print(bexp0.pretty_str())
-        bexp1 = BExp('bin_op', ['lt', pos2, exp2])
-        print(bexp1.pretty_str())
-        bexp2 = BExp('check_prop', [Prop.WALL, pos2, 4])
-        print(bexp2.pretty_str())
-
-        bexp3 = BExp('bin_op', ['and', bexp0, bexp1])
-        print(bexp3.pretty_str())
-
     def pretty_str(self) -> String:
         res = ''
         if_stmt = 'if'

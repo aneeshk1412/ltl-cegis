@@ -14,7 +14,10 @@ class Synthesizer:
         """ returns all possible ASPs within predefined bounds """
         res = []
         poss = enumerate_positions()
+        x = list(map (lambda e:e.pretty_str(), poss))
+
         exps = enumerate_expressions(limit=5, seed_positions=poss)
+        x = list(map (lambda e:e.pretty_str(), exps))
         bexps = enumerate_bexpressions(max_offset=5, seed_expressions=exps, seed_positions=poss)
         for action in Action:
           for bexp in bexps:
