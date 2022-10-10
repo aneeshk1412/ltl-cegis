@@ -6,6 +6,7 @@ from random import seed
 from tokenize import String
 from enum import Enum
 from typing import List
+from src.help import bcolors
 from src.constants import _NUMBER_OF_AGENTS, _HALLWAY_LENGTH
 
 
@@ -19,22 +20,28 @@ class Action(Enum):
     LEFT = 0
     RIGHT = 1
     NONE = 2
+    def __str__(self):
+         return  bcolors.HEADER + str(self.name) + bcolors.ENDC
 
 
 class ASP:
-    def __init__(self) -> None:
-        self.transition_cond_pairs = set()
+    def __init__(self, id, else_action) -> None:
+        self.transition_cond_pairs = list()
+        self.id = id
+        self.else_action = else_action
 
     def add_transition_cond_pair(self, b, a):
-        self.transition_cond_pairs.add((b, a))
+        self.transition_cond_pairs.append((b, a))
 
     def pretty_str(self) -> String:
-        res = ''
-        if_stmt = 'if'
+        res = 'action_selection_policy_'+str(self.id) + " {\n"
+        if_stmt = '    IF '
         for (b, a) in self.transition_cond_pairs:
             res += if_stmt+'(' + b.pretty_str() + \
-                ') then take ' + str(a) + ';\n'
-            if_stmt = 'elif'
+                ') TAKE ' + str(a).replace('Action.','') + ';\n'
+            if_stmt = '    ELIF '
+        res += "    ELSE TAKE " + str(self.else_action).replace('Action.','')  + ';\n'
+        res += "}"
         return res
 
 
@@ -61,10 +68,9 @@ class Pos:
 
 class Exp:
     def __init__(self, tp, children) -> None:
-        assert (tp in {'from_pos', 'from_int', 'absolute', 'bin_op'})
-        if tp == 'bin_op':
-            assert (len(children) == 3)
-            assert (children[0] in {'+', '-'})
+        assert (tp in {'from_pos', 'from_int', 'distance'})
+        if tp == 'distance':
+            assert (len(children) == 2)
         else:
             assert (len(children) == 1)
         self.tp = tp
@@ -75,8 +81,9 @@ class Exp:
             return self.children[0].pretty_str()
         elif self.tp == 'from_int':
             return 'Exp('+str(self.children[0])+')'
-        elif self.tp == 'absolute':
-            return 'abs(' + self.children[0].pretty_str() + ')'
+        elif self.tp == 'distance':
+            return 'dist(' + self.children[0].pretty_str() + ',' + \
+                self.children[1].pretty_str() + ')'
         elif self.tp == 'bin_op':
             return self.children[1].pretty_str() + \
                 str(self.children[0]) + self.children[2].pretty_str()
@@ -94,14 +101,16 @@ class BExp:
         self.children = children
 
     def pretty_str(self) -> String:
+        res = ''
         if self.tp == 'bin_op':
-            return self.children[0] + '(' + self.children[1].pretty_str() + ',' + self.children[2].pretty_str() + ')'
+            res = self.children[0] + '(' + self.children[1].pretty_str() + ',' + self.children[2].pretty_str() + ')'
         elif self.tp == 'check_prop':
-            return 'check_' + str(self.children[0]).replace('Prop.', '').lower() + \
+            res = 'check_' + str(self.children[0]).replace('Prop.', '').lower() + \
                 '(at=' + self.children[1].pretty_str() + \
                 ', offset=' + str(self.children[2]) + ')'
         else:
             raise Exception("unexpected boolean expression type")
+        return bcolors.FAIL + res + bcolors.ENDC
 
 
 def enumerate_positions() -> list[Pos]:
@@ -117,20 +126,17 @@ def enumerate_expressions(limit=5, seed_positions=[]) -> list[Exp]:
     res = []
     for p in seed_positions:
         res.append(Exp('from_pos', [p]))
-    for i in range(limit):
-        res.append(Exp('from_int', [i]))
-    
+
     local_exp = []
-    for e in res:
-        local_exp.append(Exp('absolute', [e]))
-    for op in {'+', '-'}:
-        for e1 in res:
-            for e2 in res:
-                local_exp.append(Exp('bin_op', [op, e1, e2]))
+    for e1 in res:
+        for e2 in res:
+            local_exp.append(Exp('distance', [e1, e2]))
     for e in local_exp:
         res.append(e)
+    
+    for i in range(limit):
+        res.append(Exp('from_int', [i]))
     return res
-
 
 
 def enumerate_bexpressions(max_offset=5, seed_expressions=[], seed_positions=[]) -> list[BExp]:
@@ -144,8 +150,8 @@ def enumerate_bexpressions(max_offset=5, seed_expressions=[], seed_positions=[])
     local_bexp = []
     #for op in {'and', 'or', }:
     #    for b1 in res:
-    #        for b2 in res:
-    #            local_bexp.append(BExp('bin_op', [op, b1, b2]))
+     #       for b2 in res:
+     #           local_bexp.append(BExp('bin_op', [op, b1, b2]))
     #
     for offset in range(-1*max_offset, max_offset):
         for pos in seed_positions:

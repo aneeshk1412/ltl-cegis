@@ -3,21 +3,24 @@ __author__ = "Kia Rahmani"
 
 
 """A simple test program which repeatedly creates and prints programs using a synthesizer """
+from os import defpath
 import sys
 import random
 from src.synthesizer import *
 
+
 def main(arguments):
     synth = Synthesizer()
-    asps = synth.enumerate_all_asps()
+    policy_depth = 2
+    asps = synth.enumerate_all_asps(depth=policy_depth, cap=4000)
     number_of_asps = len(asps)
-    print (number_of_asps, ' ASPs of length=1 are generated')
-    # print 1000 randomly chosen programs 
-    for i in range(0,1000):
-        index = random.randint(0, number_of_asps - 1)
-        print(asps[index].pretty_str())
-    
+    for asp in asps:
+        print(asp.pretty_str())
+        print (50*'-')
+    print (number_of_asps, ' ASPs of length =', policy_depth,'are generated')
 
+        
+    
 
 
 if __name__ == '__main__':
