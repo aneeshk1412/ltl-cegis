@@ -19,10 +19,10 @@ class Synthesizer:
         # debug_poss = list(map (lambda e:e.pretty_str(), poss))
         exps = enumerate_expressions(
             limit=_HALLWAY_LENGTH, seed_positions=poss)
-        # debug_exps = list(map (lambda e:e.pretty_str(), exps))
+        #debug_exps = list(map (lambda e:e.pretty_str(), exps))
         bexps = enumerate_bexpressions(
             max_offset=5, seed_expressions=exps, seed_positions=poss)
-        # debug_bexps = list(map(lambda be: be.pretty_str(), bexps))
+        #debug_bexps = list(map(lambda be: be.pretty_str(), bexps))
         id = 0
         action_tuples = list(itertools.permutations(list(Action), r=depth+1))
         for action_tuple in action_tuples:
