@@ -130,6 +130,12 @@ def enumerate_expressions(limit=5, seed_positions=[]) -> list[Exp]:
     local_exp = []
     for e1 in res:
         for e2 in res:
+            # optimization: dist of the same position does not make sense
+            if e1 == e2:
+                continue
+            # optimization: dist of constant positions does not make sense
+            if e1.children[0].tp == 'from_int' and e2.children[0].tp == 'from_int':
+                continue
             local_exp.append(Exp('distance', [e1, e2]))
     for e in local_exp:
         res.append(e)

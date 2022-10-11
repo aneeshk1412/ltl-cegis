@@ -12,7 +12,7 @@ from src.synthesizer import *
 def main(arguments):
     synth = Synthesizer()
     policy_depth = 2
-    asps = synth.enumerate_all_asps(depth=policy_depth, cap=4000)
+    asps = synth.enumerate_all_asps(depth=policy_depth, cap=5000)
     number_of_asps = len(asps)
     for asp in asps:
         print(asp.pretty_str())
