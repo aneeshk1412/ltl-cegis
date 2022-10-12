@@ -96,6 +96,7 @@ def parse_enum(config):
             # cw.add_line("")
             for val in t["range"]:
                 cw.add_line(f"int {val['name']} = {ctr};")
+                vars_map[ctr] = val['name']
                 ctr += 1
             cw.add_line("")
     return cw
@@ -129,6 +130,7 @@ def get_c_program(description_file):
     func_precompute = Function('precompute', 'void')
     varlist = []
     for comps in config['precompute']:
+        vars_map[comps['name']] = comps['exp']
         var = Variable(comps['name'], comps['type'])
         varlist.append(var.generate_declaration() + ";")
         func_precompute.add_code([f"{comps['name']} = {comps['exp']};"])
