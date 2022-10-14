@@ -93,7 +93,7 @@ class Exp:
 
 class BExp:
     def __init__(self, tp, children) -> None:
-        assert (tp in {'check_prop', 'bin_op'})
+        #assert (tp in {'check_prop', 'bin_op', 'check_robot_action'})
         assert (len(children) == 3)
         if tp == 'bin_op':
             assert (children[0] in {'and', 'or', 'eq', 'lt', 'gt'})
@@ -111,7 +111,7 @@ class BExp:
         else:
             raise Exception("unexpected boolean expression type")
         return bcolors.FAIL + res + bcolors.ENDC
-
+        #return res
 
 def enumerate_positions() -> list[Pos]:
     res = [Pos('robot_pos', [])]

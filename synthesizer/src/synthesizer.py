@@ -16,7 +16,7 @@ class Synthesizer:
         """ returns all possible ASPs within predefined bounds """
         res = []
         poss = enumerate_positions()
-        # debug_poss = list(map (lambda e:e.pretty_str(), poss))
+        #debug_poss = list(map (lambda e:e.pretty_str(), poss))
         exps = enumerate_expressions(
             limit=_HALLWAY_LENGTH, seed_positions=poss)
         #debug_exps = list(map (lambda e:e.pretty_str(), exps))
@@ -34,3 +34,10 @@ class Synthesizer:
                     asp.add_transition_cond_pair(bexp, action)
                     res.append(asp)
         return res
+
+
+
+    def get_next_asp():
+        pass
+
+    
