@@ -23,11 +23,13 @@
     ],
     "robot": {
         "state": [
-            {"name": "pos", 
+            {"name": "pos",
+                "dsl_name": "R#Pos",
                 "type": "int", 
                 "init": "random",
                 "rand_ranges": [[[-10,-5]], [[5,10]]]},
             {"name": "act",
+                "dsl_name": "R#Act",
                 "type": "action", 
                 "init": "LEFT"}
         ],
