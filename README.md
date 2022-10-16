@@ -1,4 +1,4 @@
-# LTL CEGIS
+# Counter-example Guided Inductive Synthesis for Temporal Specifications of Robot Policies
 
 Introductory code for CEGIS for LTL properties applied to Robotics safety and liveness properties.
 
