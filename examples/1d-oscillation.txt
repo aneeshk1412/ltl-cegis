@@ -15,17 +15,11 @@ Demonstrations:
 
 
 Ground Truth ASP:
-if (check(WALL, robot_pos + 1)) {
+if (check(WALL, robot_pos + 1)) \/ (robot_action == action.RIGHT) {
 	return action.LEFT;
 }
-if (check(WALL, robot_pos - 1)) {
+if (check(WALL, robot_pos - 1)) \/ (robot_action == action.LEFT){
 	return action.RIGHT;
-}
-if (robot_action == action.LEFT) {
-	return action.RIGHT;
-}
-if (robot_action == action.RIGHT) {
-	return action.LEFT;
 }
 
 

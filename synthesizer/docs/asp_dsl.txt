@@ -1,0 +1,30 @@
+prop \in {WALL, CHECKPOINT, TILE}
+action \in {LEFT, RIGHT, NONE}
+
+pos := rpos | a1_pos | a2_pos | a3_pos | ... | ak_pos
+exp := pos | int | diff(pos,pos')
+bexp := lt(exp,exp) | gt(exp,exp) | eq(exp,exp) | 
+        curr_r_action(action) | check_prop(pos, prop, offset) | from_bool (bool)
+        and(bexp,bexp) | or(bexp,bexp) 
+        
+action_perm = [a1,a2,a3] where a_i \in action and a_i != a_j 
+bexp_comb = [b1,b2,b3] where b_i \in bexp 
+
+prog := zip(action_perm, bexp_comb)
+
+# size of the expression sets
+Assuming that the size of the set bexp is B, the number of programs is defined as follows: 
+permute(actions) = 3! = 6
+select |actions| boolean expressions from bexps woth replacement = B^3
+assign the selected boolean expressions to action permutations = 6*B^3 = total number of programs
+
+
+Assuming that the size of the set exp is E and disjunction_depth = conjunction_depth = 1
+size(non_conj_disj_bexps) = 3 * E^2
+size(bexp) = 2(3*E^2)^2 = 2(9*E^4) = 18*E^4
+hence, total number of programs = 6*(18*E^4)^3
+
+
+hallway_length = h = 10
+number_of_agents = 2
+size(exp) = E = (3*2) + h + 3 = 19

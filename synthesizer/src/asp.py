@@ -12,8 +12,11 @@ from src.constants import _NUMBER_OF_AGENTS, _HALLWAY_LENGTH
 
 class Prop(Enum):
     WALL = 0
-    CHECKPOINT = 1
-    TILE = 2
+    GOAL = 1
+    def __str__(self):
+        #return  bcolors.HEADER + str(self.name).lower() + bcolors.ENDC
+        return str(self.name).lower() 
+
 
 
 class Action(Enum):
@@ -22,6 +25,8 @@ class Action(Enum):
     NONE = 2
     def __str__(self):
          return  bcolors.HEADER + str(self.name) + bcolors.ENDC
+
+
 
 
 class ASP:
@@ -84,9 +89,6 @@ class Exp:
         elif self.tp == 'distance':
             return 'dist(' + self.children[0].pretty_str() + ',' + \
                 self.children[1].pretty_str() + ')'
-        elif self.tp == 'bin_op':
-            return self.children[1].pretty_str() + \
-                str(self.children[0]) + self.children[2].pretty_str()
         else:
             raise Exception("unexpected expression type")
 
