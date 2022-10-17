@@ -18,7 +18,6 @@ class Environment:
         pass
 
 
-
 class State:
     def __init__(self, ra):
         self.robot_action = ra
@@ -26,54 +25,34 @@ class State:
 
 
 def eval_bexp(Bexp, State, Environment):
-    pass # return true of the given bexp is valid in the given state and env
-    # this function will recursively call itself. For example, if the input Bexp is 
+    pass  # return true of the given bexp is valid in the given state and env
+    # this function will recursively call itself. For example, if the input Bexp is
     # of the form AND(b1,b2), then we should return the following:
     # return eval_bexp(b1, State, Environment) && eval_bexp(b2, State, Environment)
-    # similar for disjunction 
-    # for other boolean expressions we can simply look at the environemnt or the state and decide 
+    # similar for disjunction
+    # for other boolean expressions we can simply look at the environemnt or the state and decide
     # whether return true or false
 
 
-
 # a demonstratoin (positive or negative) is a sequence of tuples of (State, Action)
-#def check_consistency(ASP, list[(State, Action)]) -> Boolean:
+# def check_consistency(ASP, list[(State, Action)]) -> Boolean:
 #    pass
-
 
 
 def main(arguments):
 
     synth = Synthesizer(action_set=Action, prop_set=Prop)
-    x = synth.enumerate_positions()
-    x = list(map(lambda be: be.pretty_str(), x))
-    y = synth.enumerate_expressions()
-    y = list(map(lambda be: be.pretty_str(), y))
-    z = synth.enumerate_atomic_bexps()
-    z = list(map(lambda be: be.pretty_str(), z))
-
-    t = synth.enumerate_bexps()
-    t = list(map(lambda be: be.pretty_str(), t))
-
-    i = 0
-    for tt in t:
-        print (str(i) + ":  "+ tt)
-        i += 1
-
-
-
-
-    return 
-    policy_depth = 2
-    asps = synth.enumerate_all_asps(depth=policy_depth, cap=500)
-    number_of_asps = len(asps)
-    for asp in asps:
-        print(asp.pretty_str())
-        print (50*'-')
-    print (number_of_asps, ' ASPs of length =', policy_depth,'are generated')
-
-        
+    asp_list = synth.enumerate_asps(cap=1000) 
+    print('>>>',str(len(asp_list)), ' ASPs of length =', len(synth.actions), 'are generated')
     
+    i = 0 
+    for iter in range(len(asp_list)):
+        input('>>> print the next 100 ASPs?\n\n')
+        for j in range(100):
+            print (asp_list[i].pretty_str())
+            i += 1
+            print(50*'-')
+    return 
 
 
 if __name__ == '__main__':

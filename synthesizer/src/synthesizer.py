@@ -3,12 +3,12 @@ __author__ = "Kia Rahmani"
 
 from re import A
 import string
+from unittest import result
 from src.help import product
 from src.constants import _HALLWAY_LENGTH
-from src.asp import Prop, ASP, Action, enumerate_bexpressions, enumerate_expressions, enumerate_positions
+from src.asp import Prop, ASP, Action
 from src.help import bcolors
 import itertools
-
 
 
 class Position:
@@ -64,7 +64,7 @@ class BoolExp:
             op = '∧'
         elif self.tp == 'or':
             op = '∨'
-        return  '(' + self.children[0].pretty_str() + ' ' + op +' ' + \
+        return '(' + self.children[0].pretty_str() + ' ' + op + ' ' + \
             self.children[1].pretty_str() + ')'
 
 
@@ -171,45 +171,33 @@ class Synthesizer:
             self.enumerate_expressions()
         if not self.enumerated_atomic_bexps:
             self.enumerate_atomic_bexps()
-        res = []
+        res = self.enumerated_atomic_bexps
         for (b1, b2) in list(itertools.combinations(self.enumerated_atomic_bexps, 2)):
             if b1.tp == 'from_bool' or b2.tp == 'from_bool':
                 continue
             for op in {'or', 'and'}:
-                
-                res.append(BoolExp(tp=op, children=[b1, b2]))
 
+                res.append(BoolExp(tp=op, children=[b1, b2]))
         self.enumerated_bexps = res
         return res
 
-
-class SynthesizerOld:
-    def __init__(self) -> None:
-        print('initializing the program synthesizer')
-
-    # returns ASPS with a single (condition, action) pair
-    def enumerate_all_asps(self, depth=1, cap=100) -> list[ASP]:
-        """ returns all possible ASPs within predefined bounds """
-        res = []
-        poss = enumerate_positions()
-        #debug_poss = list(map (lambda e:e.pretty_str(), poss))
-        exps = enumerate_expressions(
-            limit=_HALLWAY_LENGTH, seed_positions=poss)
-        #debug_exps = list(map (lambda e:e.pretty_str(), exps))
-        bexps = enumerate_bexpressions(
-            max_offset=5, seed_expressions=exps, seed_positions=poss)
-        #debug_bexps = list(map(lambda be: be.pretty_str(), bexps))
+    def enumerate_asps(self, cap=10000):
+        if not self.enumerated_bexps:
+            self.enumerate_bexps()
+        result = []
+        action_perms = list(itertools.permutations(self.actions, 3))
+        condition_combs = list(
+            itertools.combinations(self.enumerated_bexps, 2))
         id = 0
-        action_tuples = list(itertools.permutations(list(Action), r=depth+1))
-        for action_tuple in action_tuples:
-            bexp_tuples = list(product(lst=bexps, dim=depth, cap=cap))
-            for bexp_tuple in bexp_tuples:
-                asp = ASP(id=id, else_action=action_tuple[-1])
+        flag = True
+        for a1, a2, a3 in action_perms:
+            if not flag:
+                break
+            for b1, b2 in condition_combs:
+                result.append(ASP(id=id, transition_cond_pairs=[
+                    (b1, a1), (b2, a2)], else_action=a3))
                 id += 1
-                for bexp, action in zip(bexp_tuple, action_tuple):
-                    asp.add_transition_cond_pair(bexp, action)
-                    res.append(asp)
-        return res
-
-    def get_next_asp():
-        pass
+                #if id > cap:
+                #    flag = False
+                #    break
+        return result
