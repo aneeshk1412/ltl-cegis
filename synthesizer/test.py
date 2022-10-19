@@ -42,18 +42,28 @@ def eval_bexp(Bexp, State, Environment):
 def main(arguments):
 
     synth = Synthesizer(action_set=Action, prop_set=Prop)
-    asp_list = synth.enumerate_asps(cap=1000) 
-    print('>>>',str(len(asp_list)), ' ASPs of length =', len(synth.actions), 'are generated')
-    
-    i = 0 
+    asp_list = synth.enumerate_asps(cap=1000)
+    print('>>>', str(len(asp_list)), ' ASPs of length =',
+          len(synth.actions), 'are generated')
+
+    i = 0
     for iter in range(len(asp_list)):
         input('>>> print the next 100 ASPs?\n\n')
         for j in range(100):
-            print (asp_list[i].pretty_str())
+            print(asp_list[i].pretty_str())
             i += 1
             print(50*'-')
-    return 
+    return
 
 
 if __name__ == '__main__':
     sys.exit(main(sys.argv[1:]))
+
+
+# the ultimate goal is to synthesize a predicate p_i for
+# action a_i that the asp can execute
+# a demonstration D provides a set of state  for
+# each action a_i(under which a_i was taken in D)
+
+# if the demonstration is positive: we have to make sure P_i is
+# consistent with `all`
