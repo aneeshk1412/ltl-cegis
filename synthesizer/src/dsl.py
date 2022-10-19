@@ -69,22 +69,6 @@ class Expression:
             raise Exception("unexpected expression type")
 
 
-class BoolExp:
-    def __init__(self, tp: string, children) -> None:
-        assert (tp in {'and', 'or'})
-        assert (len(children) == 2)
-        self.tp = tp
-        self.children = children
-
-    def pretty_str(self) -> string:
-        if self.tp == 'and':
-            op = '∧'
-        elif self.tp == 'or':
-            op = '∨'
-        return '(' + self.children[0].pretty_str() + ' ' + op + ' ' + \
-            self.children[1].pretty_str() + ')'
-
-
 class AtomicBoolExp:
     def __init__(self, tp: string, children) -> None:
         assert (tp in {'from_bool', 'check_prop',
@@ -117,7 +101,22 @@ class AtomicBoolExp:
         else:
             raise Exception("unexpected boolean expression type")
         return bcolors.FAIL + res + bcolors.ENDC
-        # return res
+
+
+class BoolExp:
+    def __init__(self, tp: string, children) -> None:
+        assert (tp in {'and', 'or'})
+        assert (len(children) == 2)
+        self.tp = tp
+        self.children = children
+
+    def pretty_str(self) -> string:
+        if self.tp == 'and':
+            op = '∧'
+        elif self.tp == 'or':
+            op = '∨'
+        return '(' + self.children[0].pretty_str() + ' ' + op + ' ' + \
+            self.children[1].pretty_str() + ')'
 
 
 class ASP:
@@ -125,6 +124,16 @@ class ASP:
         self.transition_cond_pairs = transition_cond_pairs
         self.id = id
         self.else_action = else_action
+
+    def get_predicate_for_action(self, action: Action) -> BoolExp:
+        if a == self.else_action:
+            raise Exception('not implemented yet')  # TODO
+        else:
+            for b, a in self.transition_cond_pairs:
+                if a == action:
+                    return b
+            raise Exception(
+                'the given asp does not define a predicate for the given action')
 
     def pretty_str(self) -> string:
         res = 'action_selection_policy_'+str(self.id) + " {\n"
@@ -137,4 +146,3 @@ class ASP:
             str(self.else_action).replace('Action.', '') + ';\n'
         res += "}"
         return res
-

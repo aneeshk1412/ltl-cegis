@@ -1,16 +1,9 @@
 #!/usr/bin/python3
 __author__ = "Kia Rahmani"
 
-from re import A
-from unittest import result
-from src.help import product
-from src.constants import _HALLWAY_LENGTH
-from src.asp import Prop, ASP, Action
-from src.asp import Position, Expression, BoolExp, AtomicBoolExp
+from src.dsl import Prop, ASP, Action
+from src.dsl import Position, Expression, BoolExp, AtomicBoolExp
 import itertools
-
-
-
 
 
 class Synthesizer:
@@ -107,7 +100,7 @@ class Synthesizer:
                 result.append(ASP(id=id, transition_cond_pairs=[
                     (b1, a1), (b2, a2)], else_action=a3))
                 id += 1
-                #if id > cap:
+                # if id > cap:
                 #    flag = False
                 #    break
         return result
