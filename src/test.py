@@ -128,7 +128,7 @@ def main(arguments):
         input('>>> check the next 100 ASPs?\n\n')
         for j in range(100):
             print("Verifying: ")
-            print(cstr(asp_list[i]))
+            print(asp_list[i])
             print()
             print(verifies(cstr(asp_list[i])))
             i += 1

@@ -45,7 +45,7 @@ def get_proven_or_trace(c_prog):
         return True, None
 
     trace = result[result.find('FailurePath:'):result.find('\n\n')].strip().splitlines()
-    return False, trace[1:]
+    return False, list(parse_to_c_trace(trace))
 
 def verifies(c_asp, get_counterexample=False):
     ## <TODO> Hardcoded spec and environment for now
@@ -55,7 +55,7 @@ def verifies(c_asp, get_counterexample=False):
     prog_string = prog_string.replace('INSERT_ASP', c_asp)
     if get_counterexample:
         b, trace = get_proven_or_trace(prog_string.splitlines())
-        return b, list(parse_to_c_trace(trace))
+        return b, trace
     else:
         b, _ = get_proven_or_trace(prog_string.splitlines())
         return b
@@ -64,3 +64,11 @@ if __name__ == '__main__':
     result = subprocess.run(['Ultimate', abs_path('LTLAutomizerC.xml'), abs_path('tempprog.c'), '--settings', abs_path('Default.epf')], stdout=subprocess.PIPE)
     result = result.stdout.decode('utf-8')
     print(result)
+
+    if result.find('assertion can be violated') == -1:
+        print(True, None)
+    else:
+        trace = result[result.find('FailurePath:'):result.find('\n\n')].strip().splitlines()
+        print(False)
+        for ele in list(parse_to_c_trace(trace)):
+            print(ele)

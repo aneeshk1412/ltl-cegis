@@ -43,7 +43,7 @@ INSERT_ASP}
 int check_WALL_StateRobotPos;
 void compute_spec_intermediates(void)
 {
-    check_WALL_StateRobotPos = check_WALL(StateRobotPos, 0)
+    check_WALL_StateRobotPos = check_WALL(StateRobotPos, 0);
 }
 int main(void)
 {
