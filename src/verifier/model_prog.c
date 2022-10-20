@@ -29,7 +29,7 @@ int StateRobotAct;
 void initialize(void)
 {
     StateRobotPos = randint_robot_state_pos();
-    StateRobotAct = LEFT;
+    StateRobotAct = RIGHT;
 }
 void update(void)
 {
