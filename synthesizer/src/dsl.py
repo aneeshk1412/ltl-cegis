@@ -2,12 +2,9 @@
 __author__ = "Kia Rahmani"
 
 
-from random import seed
 import string
 from enum import Enum
-from typing import List
 from src.help import bcolors
-from src.constants import _NUMBER_OF_AGENTS, _HALLWAY_LENGTH
 
 
 class Prop(Enum):
