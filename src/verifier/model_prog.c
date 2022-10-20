@@ -4,24 +4,24 @@ extern void __VERIFIER_error() __attribute__ ((__noreturn__));
 extern void __VERIFIER_assume() __attribute__ ((__noreturn__));
 extern int __VERIFIER_nondet_int() __attribute__ ((__noreturn__));
 
-int WALL = 100;
-int GOAL = 101;
+int WALL = 103;
+int GOAL = 104;
 int check_WALL(int x, int off)
 {
-    if (x+off >= -10 && x+off <= 10) return 0;
+    if (x+off >= 0 && x+off <= 10) return 0;
     return 1;
 }
 int check_GOAL(int x, int off)
 {
     return 0;
 }
-int LEFT = 103;
-int RIGHT = 104;
-int NONE = 105;
+int LEFT = 100;
+int RIGHT = 101;
+int NONE = 102;
 int randint_robot_state_pos(void)
 {
     int x = __VERIFIER_nondet_int();
-    __VERIFIER_assume((x >= -10 && x <= 10));
+    __VERIFIER_assume((x >= 0 && x <= 10));
     return x;
 }
 int StateRobotPos;

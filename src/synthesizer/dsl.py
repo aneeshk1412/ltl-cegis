@@ -12,8 +12,8 @@ def cstr(obj):
         return obj.__str__()
 
 class Prop(Enum):
-    WALL = 0
-    GOAL = 1
+    WALL = 103
+    GOAL = 104
 
     def __str__(self):
         return self.name.lower()
@@ -22,9 +22,9 @@ class Prop(Enum):
         return self.name
 
 class Action(Enum):
-    LEFT = 0
-    RIGHT = 1
-    NONE = 2
+    LEFT = 100
+    RIGHT = 101
+    NONE = 102
 
     def __str__(self):
         return bcolors.HEADER + self.name + bcolors.ENDC

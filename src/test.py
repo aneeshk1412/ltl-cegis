@@ -14,17 +14,22 @@ from verifier.verify import verifies
 
 
 class State:
-    def __init__(self, ra, rpos, aposs, prop_map):
+    def __init__(self, ra, rpos, aposs):
         self.robot_action = ra  # the robot's current action
         self.robot_position = rpos  # an int representing the position of the robot
         # a list where index=i contains the position (an int value) of agent_i
         self.agent_positions = aposs
         # a dictionary from Prop to a set of indexes where the prop is valid
-        self.prop_map = prop_map
 
     # a function which returns true if prop holds at index i in this state
     def check_prop_at_position(self, prop: Prop, index: int) -> bool:
-        return index in self.prop_map.get(prop)
+        if prop == Prop.WALL:
+            if index >= 0 and index <= 10:
+                return False
+            else:
+                return True
+        elif prop == Prop.GOAL:
+            return False
 
     # function which returns the current values of robot/agent position in this state
     def eval_pos(self, pos: Position) -> int:
@@ -97,6 +102,9 @@ class Demonstration:
         # a list of tuples [(s_1,a_1),(s_2,a_2),...,(s_k,a_k)]
         self.state_action_transitions = state_action_transitions
 
+    def __str__(self):
+        pass
+
     # for a given action A, return the set of all states s such that (s, A) is a tuple in this demonstration
     def get_states_for_action(self, action: Action):
         res = set()
@@ -116,6 +124,10 @@ def check_demo_consistency(self, asp: ASP, demo: Demonstration):
             return False
     return True
 
+def grouped2(iterable):
+    "s -> (s0, s1), (s2, s3), (s4, s5), ..."
+    a = iter(iterable)
+    return zip(a, a)
 
 def main(arguments):
     synth = Synthesizer(action_set=Action, prop_set=Prop)
@@ -124,17 +136,23 @@ def main(arguments):
           len(synth.actions), 'are generated')
 
     i = 0
+    demo_set = {}
     for iter in range(len(asp_list)):
         input('>>> check the next 100 ASPs?\n\n')
         for j in range(100):
             print("Verifying: ")
             print(asp_list[i])
             print()
-            b = verifies(cstr(asp_list[i]))
+            print(cstr(asp_list[i]))
+            print()
+            b, trace = verifies(cstr(asp_list[i]), get_counterexample=True)
             print("SAT:", b)
             if b:
                 break
             i += 1
+            for s, a in grouped2(trace[:-1]):
+                print(s, a)
+            print(trace[-1])
             print(50*'-')
         if b:
             break
