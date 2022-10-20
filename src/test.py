@@ -130,9 +130,14 @@ def main(arguments):
             print("Verifying: ")
             print(asp_list[i])
             print()
-            print(verifies(cstr(asp_list[i])))
+            b = verifies(cstr(asp_list[i]))
+            print("SAT:", b)
+            if b:
+                break
             i += 1
             print(50*'-')
+        if b:
+            break
     return
 
 
