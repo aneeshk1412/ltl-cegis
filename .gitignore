@@ -1,3 +1,5 @@
 *.tar.gz
 .venv
 .vscode
+
+__pycache__/
