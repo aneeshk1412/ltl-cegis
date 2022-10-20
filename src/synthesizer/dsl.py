@@ -9,7 +9,6 @@ def cstr(obj):
     try:
         return obj.__cstr__()
     except AttributeError:
-        print("attr error", type(obj))
         return obj.__str__()
 
 class Prop(Enum):
@@ -131,9 +130,9 @@ class AtomicBoolExp:
     def __cstr__(self) -> string:
         res = ''
         if self.tp == 'from_bool':
-            res = cstr(self.children[0])
+            res = '1' if self.children[0] else '0'
         elif self.tp == 'curr_rob_act':
-            res = 'StateRobotAct == '+cstr(self.children[0])+')'
+            res = '(StateRobotAct == '+cstr(self.children[0])+')'
         elif self.tp in {'lt', 'gt', 'eq'}:
             res = "("+cstr(self.children[0]) + self.op_map[self.tp] + \
                 cstr(self.children[1])+')'

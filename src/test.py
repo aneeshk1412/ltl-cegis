@@ -125,9 +125,12 @@ def main(arguments):
 
     i = 0
     for iter in range(len(asp_list)):
-        input('>>> print the next 100 ASPs?\n\n')
+        input('>>> check the next 100 ASPs?\n\n')
         for j in range(100):
+            print("Verifying: ")
             print(cstr(asp_list[i]))
+            print()
+            print(verifies(cstr(asp_list[i])))
             i += 1
             print(50*'-')
     return
