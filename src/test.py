@@ -1,12 +1,13 @@
 #!/usr/bin/python3
-__author__ = "Kia Rahmani"
+__coauthor__ = ["Kia Rahmani", "Aneesh Shetty"]
 
 
 """A simple test program which repeatedly creates and prints programs using a synthesizer """
 import sys
 from typing import Set
-from src.synthesizer import *
-from src.dsl import cstr
+from synthesizer.synthesize import *
+from synthesizer.dsl import *
+from verifier.verify import verifies
 
 # a state contains the values of all state variables
 # it is equipped with a series of functions to evaluate given expressions in this state

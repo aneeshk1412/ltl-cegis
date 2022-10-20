@@ -1,10 +1,9 @@
 #!/usr/bin/python3
 __author__ = "Kia Rahmani"
 
-from src.dsl import Prop, ASP, Action
-from src.dsl import Position, Expression, BoolExp, AtomicBoolExp
+from .dsl import Prop, ASP, Action
+from .dsl import Position, Expression, BoolExp, AtomicBoolExp
 import itertools
-
 
 class Synthesizer:
     def __init__(self, action_set, prop_set) -> None:

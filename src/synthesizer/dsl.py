@@ -3,7 +3,7 @@ __coauthors__ = ["Kia Rahmani", "Aneesh Shetty"]
 
 import string
 from enum import Enum
-from src.help import bcolors
+from .help import bcolors
 
 def cstr(obj):
     try:
