@@ -61,4 +61,6 @@ def verifies(c_asp, get_counterexample=False):
         return b
 
 if __name__ == '__main__':
-    pass
+    result = subprocess.run(['Ultimate', abs_path('LTLAutomizerC.xml'), abs_path('tempprog.c'), '--settings', abs_path('Default.epf')], stdout=subprocess.PIPE)
+    result = result.stdout.decode('utf-8')
+    print(result)
