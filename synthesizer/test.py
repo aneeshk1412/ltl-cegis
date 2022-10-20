@@ -3,10 +3,10 @@ __author__ = "Kia Rahmani"
 
 
 """A simple test program which repeatedly creates and prints programs using a synthesizer """
-from operator import truediv
 import sys
 from typing import Set
 from src.synthesizer import *
+from src.dsl import cstr
 
 # a state contains the values of all state variables
 # it is equipped with a series of functions to evaluate given expressions in this state
@@ -126,7 +126,7 @@ def main(arguments):
     for iter in range(len(asp_list)):
         input('>>> print the next 100 ASPs?\n\n')
         for j in range(100):
-            print(asp_list[i].pretty_str())
+            print(cstr(asp_list[i]))
             i += 1
             print(50*'-')
     return
