@@ -176,14 +176,14 @@ class ASP:
         self.else_action = else_action
 
     def get_predicate_for_action(self, action: Action) -> BoolExp:
-        if a == self.else_action:
+        if action == self.else_action:
             raise Exception('not implemented yet')  # TODO
         else:
             for b, a in self.transition_cond_pairs:
                 if a == action:
                     return b
             raise Exception(
-                'the given asp does not define a predicate for the given action')
+                'the given asp does not define a predicate for the given action', a, action)
 
     def __str__(self) -> string:
         res = 'action_selection_policy_'+str(self.id) + " {\n"
@@ -191,8 +191,8 @@ class ASP:
         for (b, a) in self.transition_cond_pairs:
             res += if_stmt+'(' + str(b) + \
                 ') TAKE ' + str(a) + ';\n'
-            if_stmt = '    ELIF '
-        res += "    ELSE TAKE " + \
+            if_stmt = '    IF '
+        res += "    TAKE " + \
             str(self.else_action) + ';\n'
         res += "}"
         return res
@@ -203,7 +203,7 @@ class ASP:
         for (b, a) in self.transition_cond_pairs:
             res += if_stmt+'(' + cstr(b) + \
                 ') return ' + cstr(a) + ';\n'
-            if_stmt = '    else if '
-        res += "    else return " + \
+            if_stmt = '    if '
+        res += "    return " + \
             cstr(self.else_action) + ';\n'
         return res

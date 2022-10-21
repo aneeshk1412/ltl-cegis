@@ -12,14 +12,20 @@ from verifier.verify import verifies
 # a state contains the values of all state variables
 # it is equipped with a series of functions to evaluate given expressions in this state
 
+action_map = {a.value: a.name for a in Action}
 
 class State:
-    def __init__(self, ra, rpos, aposs):
-        self.robot_action = ra  # the robot's current action
-        self.robot_position = rpos  # an int representing the position of the robot
+    def __init__(self, d):
+        self.robot_action = action_map[int(d['StateRobotAct'])] # the robot's current action
+        self.robot_position = int(d['StateRobotPos'])  # an int representing the position of the robot
         # a list where index=i contains the position (an int value) of agent_i
-        self.agent_positions = aposs
-        # a dictionary from Prop to a set of indexes where the prop is valid
+        self.agent_positions = []
+        self.d = d
+        self.d['StateRobotAct'] = self.robot_action
+        self.d['StateRobotPos'] = self.robot_position
+    
+    def __str__(self) -> str:
+        return str(self.d)
 
     # a function which returns true if prop holds at index i in this state
     def check_prop_at_position(self, prop: Prop, index: int) -> bool:
@@ -103,7 +109,13 @@ class Demonstration:
         self.state_action_transitions = state_action_transitions
 
     def __str__(self):
-        pass
+        i = 1
+        res = 'Demo Type: ' + self.demo_tp
+        for s, a in self.state_action_transitions:
+            res += f'\nState_{i}: ' + str(s)
+            res += f'\nAction_{i}: ' + str(a)
+            i += 1
+        return res
 
     # for a given action A, return the set of all states s such that (s, A) is a tuple in this demonstration
     def get_states_for_action(self, action: Action):
@@ -117,7 +129,7 @@ class Demonstration:
 # this function takes a demonstration and an ASP and returns 
 # true if the ASP is consistent with the demo (i.e. running the 
 # ASP starting from the first state would result in the same sequence of actions being taken)
-def check_demo_consistency(self, asp: ASP, demo: Demonstration):
+def check_demo_consistency(asp: ASP, demo: Demonstration):
     for s, a in demo.state_action_transitions:
         asp_predicate_for_act = asp.get_predicate_for_action(a)
         if not s.eval_bexp(asp_predicate_for_act):
@@ -129,14 +141,49 @@ def grouped2(iterable):
     a = iter(iterable)
     return zip(a, a)
 
-def main(arguments):
+def algorithm2(arguments):
     synth = Synthesizer(action_set=Action, prop_set=Prop)
     asp_list = synth.enumerate_asps(cap=1000)
     print('>>>', str(len(asp_list)), ' ASPs of length =',
           len(synth.actions), 'are generated')
 
     i = 0
-    demo_set = {}
+    demo_set = set()
+    for iter in range(len(asp_list)):
+        input('>>> check the next 100 ASPs?\n\n')
+        for j in range(100):
+            i += 1
+            print("Verifying: ")
+            print(asp_list[i])
+            print()
+            print(cstr(asp_list[i]))
+            print()
+            if any(not check_demo_consistency(asp_list[i], demo) for demo in demo_set):
+                print('UNSAT due to demo')
+                break
+            b, trace = verifies(cstr(asp_list[i]), get_counterexample=True)
+            print("SAT:", b)
+            if b:
+                break
+            counterexample = Demonstration('neg', [(State(s), action_map[int(a['StateRobotAct'])]) for s, a in grouped2(trace[:-1])])
+            print(counterexample)
+            demo_set.add(counterexample)
+            S_end = State(trace[-1])
+            print(f'State_{(len(trace) // 2) + 1}:', S_end)
+            print(50*'-')
+        if b:
+            break
+    return
+
+
+def algorithm1(arguments):
+    synth = Synthesizer(action_set=Action, prop_set=Prop)
+    asp_list = synth.enumerate_asps(cap=1000)
+    print('>>>', str(len(asp_list)), ' ASPs of length =',
+          len(synth.actions), 'are generated')
+
+    i = 0
+    demo_set = set()
     for iter in range(len(asp_list)):
         input('>>> check the next 100 ASPs?\n\n')
         for j in range(100):
@@ -150,9 +197,12 @@ def main(arguments):
             if b:
                 break
             i += 1
-            for s, a in grouped2(trace[:-1]):
-                print(s, a)
-            print(trace[-1])
+
+            counterexample = Demonstration('neg', [(State(s), action_map[int(a['StateRobotAct'])]) for s, a in grouped2(trace[:-1])])
+            print(counterexample)
+            demo_set.add(counterexample)
+            S_end = State(trace[-1])
+            print(f'State_{(len(trace) // 2) + 1}:', S_end)
             print(50*'-')
         if b:
             break
@@ -160,7 +210,7 @@ def main(arguments):
 
 
 if __name__ == '__main__':
-    sys.exit(main(sys.argv[1:]))
+    sys.exit(algorithm1(sys.argv[1:]))
 
 # the ultimate goal is to synthesize a predicate p_i for
 # action a_i that the asp can execute
