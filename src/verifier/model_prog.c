@@ -42,7 +42,7 @@ void initialize(void)
 int policy(void)
 {
     INSERT_ASP
-    return StateRobotAct;
+    return RIGHT;
 }
 
 int do_not_hit_wall;

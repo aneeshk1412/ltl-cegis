@@ -10,13 +10,15 @@ def abs_path(filename):
 
 def parse_action(action_line):
     action_line = action_line.strip().translate(str.maketrans('', '', '][,')).strip().split()
-    filter_func = lambda x: x.find('\\') == -1 and x.find('Act') != -1 and x.find('State') != -1
-    return dict(x.split('=') for x in filter(filter_func, action_line))
+    filter_func = lambda x: x.find('\\') == -1 and x.find('StateRobotAct') != -1
+    val = [x.split('=')[1] for x in filter(filter_func, action_line)]
+    return int(val[0])
 
 def parse_state(state_line):
     state_line = state_line.strip().translate(str.maketrans('', '', '][,')).strip().split()
     filter_func = lambda x: x.find('\\') == -1 and x.find('State') != -1
-    return dict(x.split('=') for x in filter(filter_func, state_line))
+    d = dict(x.split('=') for x in filter(filter_func, state_line))
+    return {k: int(v) for k, v in d.items()}
 
 def parse_to_c_trace(ultimate_trace):
     bit = ''
