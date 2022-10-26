@@ -1,8 +1,8 @@
 #!/usr/bin/python3
 __coauthor__ = ["Kia Rahmani", "Aneesh Shetty"]
 
-
 """A simple test program which repeatedly creates and prints programs using a synthesizer """
+import time
 import sys
 from typing import Set
 from synthesizer.synthesize import *
@@ -141,6 +141,35 @@ def grouped2(iterable):
     a = iter(iterable)
     return zip(a, a)
 
+def find_target_algorithm_index():
+    target = "    if (((StateRobotAct == RIGHT) || check_WALL(StateRobotPos,1))) return LEFT;\n    if (((StateRobotPos==0) || (StateRobotPos==3))) return RIGHT;\n    return NONE;\n"
+    synth = Synthesizer(action_set=Action, prop_set=Prop)
+    asp_list = synth.enumerate_asps(cap=1000)
+    print('>>>', str(len(asp_list)), ' ASPs of length =',
+          len(synth.actions), 'are generated')
+
+    i = 0
+    demo_set = set()
+    for iter in range(len(asp_list)):
+        for j in range(100):
+            if i == len(asp_list):
+                print("OUT OF BOUNDS")
+                return
+            # print("Verifying: ")
+            # if cstr(asp_list[i]).find("WALL") != -1:
+                # print(asp_list[i])
+                # print()
+                # print(cstr(asp_list[i]))
+            if target == cstr(asp_list[i]):
+                print(f"Found Target Program at index {i}")
+                print(asp_list[i])
+                print()
+                print(cstr(asp_list[i]))
+                return
+            i += 1
+    return
+
+
 def algorithm2(arguments):
     synth = Synthesizer(action_set=Action, prop_set=Prop)
     asp_list = synth.enumerate_asps(cap=1000)
@@ -152,7 +181,6 @@ def algorithm2(arguments):
     for iter in range(len(asp_list)):
         input('>>> check the next 100 ASPs?\n\n')
         for j in range(100):
-            i += 1
             print("Verifying: ")
             print(asp_list[i])
             print()
@@ -160,11 +188,13 @@ def algorithm2(arguments):
             print()
             if any(not check_demo_consistency(asp_list[i], demo) for demo in demo_set):
                 print('UNSAT due to demo')
+                i += 1
                 break
             b, trace = verifies(cstr(asp_list[i]), get_counterexample=True)
             print("SAT:", b)
             if b:
                 break
+            i += 1
             counterexample = Demonstration('neg', [(State(s), action_map[int(a['StateRobotAct'])]) for s, a in grouped2(trace[:-1])])
             print(counterexample)
             demo_set.add(counterexample)
@@ -192,7 +222,9 @@ def algorithm1(arguments):
             print()
             print(cstr(asp_list[i]))
             print()
+            start_time = time.time()
             b, trace = verifies(cstr(asp_list[i]), get_counterexample=True)
+            print("--- %s seconds ---" % (time.time() - start_time))
             print("SAT:", b)
             if b:
                 break
@@ -211,6 +243,7 @@ def algorithm1(arguments):
 
 if __name__ == '__main__':
     sys.exit(algorithm1(sys.argv[1:]))
+    # sys.exit(find_target_algorithm_index())
 
 # the ultimate goal is to synthesize a predicate p_i for
 # action a_i that the asp can execute

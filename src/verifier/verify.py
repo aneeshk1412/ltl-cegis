@@ -26,9 +26,9 @@ def parse_to_c_trace(ultimate_trace):
         elif bit == 'policy':
             yield parse_action(line)
             bit = ''
-        elif line.find('RET') != -1 and line.find('compute_spec_intermediates()') != -1:
-            bit = 'compute_spec_intermediates'
-        elif bit == 'compute_spec_intermediates':
+        elif line.find('RET') != -1 and line.find('compute_spec()') != -1:
+            bit = 'compute_spec'
+        elif bit == 'compute_spec':
             yield parse_state(line)
             bit = ''
 
@@ -38,8 +38,9 @@ def get_proven_or_trace(c_prog):
 
     result = subprocess.run(['Ultimate', abs_path('LTLAutomizerC.xml'), abs_path('tempprog.c'), '--settings', abs_path('Default.epf')], stdout=subprocess.PIPE)
 
-    # os.remove(abs_path('tempprog.c'))
+    os.remove(abs_path('tempprog.c'))
     result = result.stdout.decode('utf-8')
+    # print(result)
 
     if result.find('assertion can be violated') == -1:
         return True, None
@@ -61,7 +62,7 @@ def verifies(c_asp, get_counterexample=False):
         return b
 
 if __name__ == '__main__':
-    result = subprocess.run(['Ultimate', abs_path('LTLAutomizerC.xml'), abs_path('tempprog.c'), '--settings', abs_path('Default.epf')], stdout=subprocess.PIPE)
+    result = subprocess.run(['Ultimate', abs_path('LTLAutomizerC.xml'), abs_path('test_prog.c'), '--settings', abs_path('Default.epf')], stdout=subprocess.PIPE)
     result = result.stdout.decode('utf-8')
     print(result)
 

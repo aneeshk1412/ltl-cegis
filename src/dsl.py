@@ -22,14 +22,14 @@ class StaticProperty(Terminal):
     finite_iter = None
     def __verify__(self) -> bool:
         match self.term:
-            case 'WALL':
+            case 'WALL' | 'GOAL':
                 return True
         return False
 
     @classmethod
     def __simple_enumerate__(cls):
         if not cls.finite_iter:
-            cls.finite_iter = [cls(p) for p in ['WALL']]
+            cls.finite_iter = [cls(p) for p in ['WALL', 'GOAL']]
         yield from cls.finite_iter
 
 
@@ -179,7 +179,12 @@ if __name__ == '__main__':
     i = 0
     for x in ASP.__simple_enumerate__():
         i += 1
-        print(x, end='\n\n')
+        print(cstr(x), end='\n\n')
         if cstr(x) == cstr(asp):
             print(f'Found Target Program at Iteration: {i}')
             break
+
+'''
+    if ((StateRobotAct == RIGHT && check_prop_WALL(vector_add(StateRobotPos, 1)))) return LEFT;
+    if ((StateRobotAct == LEFT && check_prop_WALL(vector_add(StateRobotPos, -1)))) return RIGHT;
+'''

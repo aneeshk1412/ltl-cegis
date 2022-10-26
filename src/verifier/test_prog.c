@@ -41,7 +41,8 @@ void initialize(void)
 
 int policy(void)
 {
-    INSERT_ASP
+    if ((StateRobotAct == RIGHT && check_prop_WALL(vector_add(StateRobotPos, 1)))) return LEFT;
+    if ((StateRobotAct == LEFT && check_prop_WALL(vector_add(StateRobotPos, -1)))) return RIGHT;
     return StateRobotAct;
 }
 

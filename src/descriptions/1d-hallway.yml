@@ -1,0 +1,34 @@
+StaticProperty:
+- name: WALL
+  include: False
+  ranges:
+  - x: [-10, 10]
+- name: CHECKPOINT
+  include: True
+  ranges:
+  - x: [0, 0]
+
+Action:
+- name: LEFT
+  value: 100
+  update: x - 1
+- name: RIGHT
+  value: 101
+  update: x + 1
+
+State:
+- name: StateRobotPos
+  type: int
+  init: random
+  ranges:
+  - x: [-10, 10]
+- name: StateRobotAct
+  type: int
+  init: random
+  values:
+  - LEFT
+  - RIGHT
+
+Specs:
+- name: 'do_not_hit_wall'
+  value: check_prop_WALL(StateRobotPos) == 0
