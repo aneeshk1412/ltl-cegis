@@ -40,6 +40,10 @@ class StaticProperty(Terminal):
             cls.finite_iter = [cls(p) for p in ['WALL', 'CHECKPOINT']]
         yield from cls.finite_iter
 
+    @classmethod
+    def __param_enumerate_1__(cls, props_list):
+        L =  [cls(x) for x in props_list]
+        yield from L
 
 class Vector(Terminal):
     finite_iter = None
@@ -55,6 +59,10 @@ class Vector(Terminal):
             cls.finite_iter = [cls(x) for x in [-3 , -2 , -1 , 1 , 2 , 3]]
         yield from cls.finite_iter
 
+    @classmethod
+    def __param_enumerate_1__(cls, max_vision):
+        L =  [cls(x) for x in range(-max_vision, max_vision+1) if x != 0]
+        yield from L
 
 # <TODO> handling vector add quickly in 2D
 class Position(NonTerminal):
@@ -87,6 +95,11 @@ class Position(NonTerminal):
             cls.finite_iter = [cls('StateRobotPos')] + [cls('vector_add', 'StateRobotPos', v) for v in Vector.__simple_enumerate__()]
         yield from cls.finite_iter
     
+    @classmethod
+    def __param_enumerate_1__(cls, max_vision):
+        L = [cls('StateRobotPos')] + [cls('vector_add', 'StateRobotPos', v) for v in Vector.__param_enumerate_1__(max_vision)]
+        yield from L
+
     def eval(self, state):
         match self.terms:
             case ['StateRobotPos']:
@@ -155,6 +168,18 @@ class BooleanExp(NonTerminal):
             yield cls('and', x, y)
             yield cls('or', x, y)
     
+    @classmethod
+    def __param_enumerate_1__(cls, max_vision, props_list):
+        yield from [cls('True'), cls('False')]
+        yield from (cls('eq', 'StateRobotAct', a) for a in Action.__simple_enumerate__())
+        yield from (cls('not', cls('eq', 'StateRobotAct', a)) for a in Action.__simple_enumerate__())
+        yield from (cls('check_prop', pos, prop) for pos in Position.__param_enumerate_1__(max_vision) for prop in StaticProperty.__param_enumerate_1__(props_list))
+        yield from (cls('not', cls('check_prop', pos, prop)) for pos in Position.__param_enumerate_1__(max_vision) for prop in StaticProperty.__param_enumerate_1__(props_list))
+        gen = lambda: cls.__param_enumerate_1__(max_vision, props_list)
+        for x, y in icombinations(gen):
+            yield cls('and', x, y)
+            yield cls('or', x, y)
+
     def eval(self, state):
         match self.terms:
             case ['True' ]:
@@ -196,10 +221,18 @@ class ASP(NonTerminal):
     @classmethod
     def __simple_enumerate__(cls):
         for bexp1, bexp2 in iproduct(BooleanExp.__simple_enumerate__, BooleanExp.__simple_enumerate__):
-            yield cls([bexp1, Action('LEFT')], 
+            yield cls([bexp1, Action('LEFT')],
                       [bexp2, Action('RIGHT')],
                       [Action('RIGHT')])
-    
+
+    @classmethod
+    def __param_enumerate_1__(cls, max_vision, props_list):
+        gen = lambda : BooleanExp.__param_enumerate_1__(max_vision, props_list)
+        for bexp1, bexp2 in iproduct(gen, gen):
+            yield cls([bexp1, Action('LEFT')],
+                      [bexp2, Action('RIGHT')],
+                      [Action('RIGHT')])
+
     def eval(self, state):
         for term in self.terms[:-1]:
             if term[0].eval(state):
@@ -220,18 +253,26 @@ if __name__ == '__main__':
     bexp2 = BooleanExp('and', BooleanExp('eq', 'StateRobotAct', left_act), BooleanExp('check_prop', pos2, wall))
     asp = ASP([bexp1, Action('LEFT')], [bexp2, Action('RIGHT')], [Action('RIGHT')])
 
-    print(bexp1, end='\n\n')
-    print(bexp2, end='\n\n')
-    print(asp, end='\n\n')
+    # print(bexp1, end='\n\n')
+    # print(bexp2, end='\n\n')
+    # print(asp, end='\n\n')
 
-    print(cstr(bexp1), end='\n\n')
-    print(cstr(bexp2), end='\n\n')
-    print(cstr(asp), end='\n\n')
+    # print(cstr(bexp1), end='\n\n')
+    # print(cstr(bexp2), end='\n\n')
+    # print(cstr(asp), end='\n\n')
 
     i = 0
     for x in ASP.__simple_enumerate__():
         i += 1
-        print(cstr(x), end='\n\n')
+        # print(cstr(x), end='\n\n')
+        if cstr(x) == cstr(asp):
+            print(f'Found Target Program at Iteration: {i}')
+            break
+
+    i = 0
+    for x in ASP.__param_enumerate_1__(max_vision=1, props_list=['WALL']):
+        i += 1
+        # print(cstr(x), end='\n\n')
         if cstr(x) == cstr(asp):
             print(f'Found Target Program at Iteration: {i}')
             break

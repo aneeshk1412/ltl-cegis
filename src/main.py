@@ -7,21 +7,25 @@ from verifier.verify import verifies
 import argparse
 
 def algorithm_1():
+    i = 0
     for prog in ASP.__simple_enumerate__():
+        i += 1
         b, trace = verifies(cstr(prog), get_counterexample=True)
         print(prog, end='\n')
         print(b)
         print()
 
         if b:
-            print("SAT Prog:")
+            print(f"SAT Prog {i} :")
             print(prog)
             break
 
 def algorithm_2():
     negative_demo_set = list()
     positive_demo_set = list()
+    i = 0
     for prog in ASP.__simple_enumerate__():
+        i += 1
         b = False
         flag = False
         print(prog, end='\n')
@@ -41,7 +45,7 @@ def algorithm_2():
         print()
 
         if b:
-            print("SAT Prog:")
+            print(f"SAT Prog {i}:")
             print(prog)
             break
 
