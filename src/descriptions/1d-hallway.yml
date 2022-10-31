@@ -2,11 +2,16 @@ StaticProperty:
 - name: WALL
   include: False
   ranges:
-  - x: [-10, 10]
+  - x: [-500, 500]
 - name: CHECKPOINT
   include: True
   ranges:
   - x: [0, 0]
+
+- name: WINDOW
+  include: True
+  ranges:
+  - x: [1, 9]
 
 Action:
 - name: LEFT
@@ -21,7 +26,7 @@ State:
   type: int
   init: random
   ranges:
-  - x: [-10, 10]
+  - x: [-500, 500]
 - name: StateRobotAct
   type: int
   init: random

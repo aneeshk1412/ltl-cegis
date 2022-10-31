@@ -30,14 +30,14 @@ class StaticProperty(Terminal):
     finite_iter = None
     def __verify__(self) -> bool:
         match self.term:
-            case 'WALL' | 'CHECKPOINT':
+            case 'WALL' | 'CHECKPOINT' | 'WINDOW':
                 return True
         return False
 
     @classmethod
     def __simple_enumerate__(cls):
         if not cls.finite_iter:
-            cls.finite_iter = [cls(p) for p in ['WALL', 'CHECKPOINT']]
+            cls.finite_iter = [cls(p) for p in ['WALL', 'CHECKPOINT', 'WINDOW']]
         yield from cls.finite_iter
 
     @classmethod
@@ -48,6 +48,9 @@ class StaticProperty(Terminal):
 class Vector(Terminal):
     finite_iter = None
     def __verify__(self) -> bool:
+        return True
+        # XXX 
+        # TODO: this needs to be fixed
         match self.term:
             case -3 | -2 | -1 | 1 | 2 | 3:
                 return True
@@ -111,9 +114,11 @@ class Position(NonTerminal):
 # <TODO> parse checkprop from description file to make the function
 def check_prop(pos, static_prop):
     if static_prop.term == 'WALL':
-        return not(pos >= -10 and pos <= 10)
+        return not(pos >= -500 and pos <= 500) ## XXX THIS MUST NOT BE HARD CODED
     elif static_prop.term == 'CHECKPOINT':
         return pos == 0
+    elif static_prop.term == 'WINDOW':
+        return pos in range(0,5)
     else:
         raise NotImplementedError
 

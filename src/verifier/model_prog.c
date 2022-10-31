@@ -19,12 +19,17 @@ int update_pos_from_action(int act, int x)
 
 int check_prop_WALL(int x)
 {
-    if ((x >= -10 && x <= 10)) return 0;
+    if ((x >= -500 && x <= 500)) return 0;
     return 1;
 }
 int check_prop_CHECKPOINT(int x)
 {
     if ((x == 0)) return 1;
+    return 0;
+}
+int check_prop_WINDOW(int x)
+{
+    if ((x >= 1 && x <= 9)) return 1;
     return 0;
 }
 
@@ -34,7 +39,7 @@ int StateRobotAct;
 void initialize(void)
 {
     StateRobotPos = __VERIFIER_nondet_int();
-    __VERIFIER_assume(((StateRobotPos >= -10 && StateRobotPos <= 10)));
+    __VERIFIER_assume(((StateRobotPos >= -500 && StateRobotPos <= 500)));
     StateRobotAct = __VERIFIER_nondet_int();
     __VERIFIER_assume(((StateRobotAct == LEFT) || (StateRobotAct == RIGHT)));
 }
