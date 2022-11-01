@@ -1,5 +1,6 @@
 #!/usr/bin/python3
 
+from operator import neg
 from coder import make_model_program
 from dsl import *
 from utils import cstr, grouped2, open_config_file
@@ -72,14 +73,35 @@ def gen_ground_truth():
 
     bexp1 = BooleanExp('check_prop', pos1, wall)
     bexp2 = BooleanExp('check_prop', pos2, wall)
-    asp = ASP([bexp1, Action('LEFT')], 
-              [bexp2, Action('RIGHT')], 
+    asp = ASP([bexp1, Action('LEFT')],
+              [bexp2, Action('RIGHT')],
               [Action('RIGHT')])
     return asp
 
 
 def compute_max_vision(action_samples, action: int):
-    return 20
+    def is_wall(index):
+        return index <= -500 or index >= 500
+    _max_hallway = 500
+    positive_positions = list(map (lambda s: s['StateRobotPos'], action_samples[action]['+']))
+    negative_positions = list(map (lambda s: s['StateRobotPos'], action_samples[action]['-']))
+    result = _max_hallway
+        
+
+    
+    for i in reversed(range(_max_hallway+1)):
+        pos_wall = []
+        neg_wall = []
+        for p in positive_positions:
+            pos_wall.append(is_wall(p + i))
+        final_check_pos = all(pos_wall) or not any(pos_wall) # make sure they are either all TRUE or all FALSE
+        for p in negative_positions:
+            neg_wall.append(is_wall(p + i))
+        final_check_neg = all(neg_wall) or not any(neg_wall) # make sure they are either all TRUE or all FALSE
+        if final_check_neg and final_check_pos:
+            result = i
+            break
+    return result
 
 
 def compute_props_list(action_samples, action: int):
@@ -91,75 +113,78 @@ def algorithm_3():
     _left = 100
     #ground_truth = gen_ground_truth()
     # states under which the action was NOT taken
-    left_action_negative_samples  = [#{'StateRobotAct': _left,  'StateRobotPos': 0},
-                                     #{'StateRobotAct': _right, 'StateRobotPos': -100},
-                                     #{'StateRobotAct': _left,  'StateRobotPos': 485},
-                                     #{'StateRobotAct': _left,  'StateRobotPos': -495}
+    left_action_negative_samples = [{'StateRobotAct': _left,  'StateRobotPos': 0},
+                                    {'StateRobotAct': _right,
+                                     'StateRobotPos': -100},
+                                    {'StateRobotAct': _left,
+                                     'StateRobotPos': 485},
+                                    {'StateRobotAct': _left,
+                                     'StateRobotPos': -495}
                                     ]
-
-    right_action_negative_samples = [#{'StateRobotAct': _right, 'StateRobotPos': 495}
+    right_action_negative_samples = [{'StateRobotAct': _right, 'StateRobotPos': 495}
+                                     ]
+    left_action_positive_samples = [{'StateRobotAct': _right, 'StateRobotPos': 491}
                                     ]
-    # states under which the action was taken
-    left_action_positive_samples  = [#{'StateRobotAct': _right, 'StateRobotPos': 491}
-                                    ]
-
-    right_action_positive_samples = [#{'StateRobotAct': _left,  'StateRobotPos': 0},
-                                     #{'StateRobotAct': _right, 'StateRobotPos': 1},
-                                     #{'StateRobotAct': _right, 'StateRobotPos': 100},
-                                     #{'StateRobotAct': _right, 'StateRobotPos': 485},
-                                     #{'StateRobotAct': _right, 'StateRobotPos': -499}
-                                    ]
+    right_action_positive_samples = [{'StateRobotAct': _left,  'StateRobotPos': 0},
+                                     {'StateRobotAct': _right, 'StateRobotPos': 1},
+                                     {'StateRobotAct': _right,
+                                         'StateRobotPos': 100},
+                                     {'StateRobotAct': _right,
+                                         'StateRobotPos': 485},
+                                     {'StateRobotAct': _right,
+                                         'StateRobotPos': -499}
+                                     ]
 
     action_samples = {_left:  {'+': left_action_positive_samples,
                                '-': left_action_negative_samples},
                       _right: {'+': right_action_positive_samples,
                                '-': right_action_negative_samples}}
 
-    # TODO
-    max_vision = compute_max_vision(action_samples, 0)
-    props_list = compute_props_list(action_samples, 0)
+    max_vision = compute_max_vision(action_samples, _right)
+    props_list = compute_props_list(action_samples, _right)
 
     i = 0
-    # TODO: make the input args specific for each type of action, e.g. a max_vision for right, and another one for left
     for prog in ASP.__param_enumerate_1__(max_vision=max_vision, props_list=props_list):
         print('-'*75)
         i += 1
-        b = False
-        flag = False
-        print('asp_'+str(i))
-        print('   '+str(prog).replace('\n','\n   '))
+        consistent_with_demos = True
+        print('asp_'+str(i) + ':\n   '+str(prog).replace('\n', '\n   '))
         # check samples
         for a in {_right, _left}:
             if not all(prog.eval(p) == a for p in action_samples[a]['+']) or not all(prog.eval(p) != a for p in action_samples[a]['-']):
-                print('discarded: candidate program is not consistent with demos')
-                flag = True
+                print('Discarded. Candidate program is not consistent with demos')
+                consistent_with_demos = False
                 break
         # this will save us a call to the ultimate because we already know the candidate ASP matches one of the negative demos
-        if flag:
+        if not consistent_with_demos:
             continue
 
-        input('ok?')
-
+        # make a call to Ultimate to check consistency with the safety spec
         b, trace = verifies(cstr(prog), get_counterexample=True)
 
-        if b:  # found a consistent program with the spec
-            print('#'*100)
-            print('found a program consistent with the specification and demonstrations!')
-            print(f"SAT Prog {i}:")  # an ASP consistent with the spec is found
-            print('     '+prog.__str__().replace('\n', '\n     '))
+        if b:  # the candidate program is consistent with the spec
+            print('#'*75)
+            print('Found a program consistent with the specification and demonstrations!')
+            # an ASP consistent with the spec is found
+            print(f"Satisfying Program:\n")
+            print('asp_'+str(i) + ':\n   '+str(prog).replace('\n', '\n   '))
             break
-        else:  # the ASP violates the spec
-            demo = tuple(grouped2(trace))
-            for s, a in demo:
-                action_samples[a]['-'].append(s)
-
-#
+        # the candidate program violates the spec (get a counter-example and add it to the negative samples)
+        else:
+            #demo = tuple(grouped2(trace))
+            assert len(
+                trace) == 3, 'for now we are assuming a single state transition in all demos'
+            # parse the demo into a negative sample
+            op = trace[1]
+            s0 = trace[0]
+            action_samples[op]['-'].append(s0)
 
 
 def get_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--alg', type=int)
-    parser.add_argument('--file', type=str, default='descriptions/1d-hallway.yml')
+    parser.add_argument('--file', type=str,
+                        default='descriptions/1d-hallway.yml')
     return parser.parse_args()
 
 
@@ -170,7 +195,7 @@ if __name__ == '__main__':
     get_terminals_from_config(config)
     with open('verifier/model_prog.c', 'w') as f:
         f.write(str(make_model_program(config)))
-    
+
     if args.alg == 1:
         algorithm_1()
     elif args.alg == 2:
