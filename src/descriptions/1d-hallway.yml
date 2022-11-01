@@ -7,7 +7,6 @@ StaticProperty:
   include: True
   ranges:
   - x: [0, 0]
-
 - name: WINDOW
   include: True
   ranges:

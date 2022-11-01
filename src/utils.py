@@ -1,5 +1,6 @@
 #!/usr/bin/python
 
+import yaml
 from abc import ABC, abstractmethod
 from itertools import count, repeat
 
@@ -26,7 +27,6 @@ def cstr(obj):
         return obj.__cstr__()
     except AttributeError:
         return str(obj)
-
 
 class Terminal(ABC):
     def __init__(self, term) -> None:
@@ -72,3 +72,7 @@ class NonTerminal(ABC):
     def __simple_enumerate__(cls):
         pass
 
+
+def open_config_file(configfile):
+    with open(configfile, 'r') as stream:
+        return yaml.safe_load(stream)
