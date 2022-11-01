@@ -74,16 +74,17 @@ def gen_ground_truth():
 
     bexp1 = BooleanExp('check_prop', pos1, wall)
     bexp2 = BooleanExp('check_prop', pos2, wall)
-    asp = ASP([bexp1, Action('LEFT')], [
-              bexp2, Action('RIGHT')], [Action('RIGHT')])
+    asp = ASP([bexp1, Action('LEFT')], 
+              [bexp2, Action('RIGHT')], 
+              [Action('RIGHT')])
     return asp
 
 
-def compute_max_vision():
-    return 10
+def compute_max_vision(action_samples, action: int):
+    return 20
 
 
-def compute_props_list():
+def compute_props_list(action_samples, action: int):
     return ['WALL']
 
 
@@ -92,23 +93,33 @@ def algorithm_3():
     _left = 100
     #ground_truth = gen_ground_truth()
     # states under which the action was NOT taken
-    left_action_negative_samples = [{'StateRobotAct': _left, 'StateRobotPos': 0},
-                                    {'StateRobotAct': _right, 'StateRobotPos': -100}]
-    right_action_negative_samples = []
-    # states under which the action was taken
-    left_action_positive_samples = [{'StateRobotAct': _right, 'StateRobotPos': 491}]
-    right_action_positive_samples = [{'StateRobotAct': _left, 'StateRobotPos': 0},
-                                     {'StateRobotAct': _right, 'StateRobotPos': 1}]
+    left_action_negative_samples  = [#{'StateRobotAct': _left,  'StateRobotPos': 0},
+                                     #{'StateRobotAct': _right, 'StateRobotPos': -100},
+                                     #{'StateRobotAct': _left,  'StateRobotPos': 485},
+                                     #{'StateRobotAct': _left,  'StateRobotPos': -495}
+                                    ]
 
-    action_samples = {_left:  {'+': left_action_positive_samples, 
+    right_action_negative_samples = [#{'StateRobotAct': _right, 'StateRobotPos': 495}
+                                    ]
+    # states under which the action was taken
+    left_action_positive_samples  = [#{'StateRobotAct': _right, 'StateRobotPos': 491}
+                                    ]
+
+    right_action_positive_samples = [#{'StateRobotAct': _left,  'StateRobotPos': 0},
+                                     #{'StateRobotAct': _right, 'StateRobotPos': 1},
+                                     #{'StateRobotAct': _right, 'StateRobotPos': 100},
+                                     #{'StateRobotAct': _right, 'StateRobotPos': 485},
+                                     #{'StateRobotAct': _right, 'StateRobotPos': -499}
+                                    ]
+
+    action_samples = {_left:  {'+': left_action_positive_samples,
                                '-': left_action_negative_samples},
-                      _right: {'+': right_action_positive_samples, 
+                      _right: {'+': right_action_positive_samples,
                                '-': right_action_negative_samples}}
 
-
     # TODO
-    max_vision = compute_max_vision()
-    props_list = compute_props_list()
+    max_vision = compute_max_vision(action_samples, 0)
+    props_list = compute_props_list(action_samples, 0)
 
     i = 0
     # TODO: make the input args specific for each type of action, e.g. a max_vision for right, and another one for left
@@ -117,7 +128,8 @@ def algorithm_3():
         i += 1
         b = False
         flag = False
-        print('asp_'+str(i)+'\n', prog, end='\n')
+        print('asp_'+str(i))
+        print('   '+str(prog).replace('\n','\n   '))
         # check samples
         for a in {_right, _left}:
             if not all(prog.eval(p) == a for p in action_samples[a]['+']) or not all(prog.eval(p) != a for p in action_samples[a]['-']):
@@ -127,6 +139,8 @@ def algorithm_3():
         # this will save us a call to the ultimate because we already know the candidate ASP matches one of the negative demos
         if flag:
             continue
+
+        input('ok?')
 
         b, trace = verifies(cstr(prog), get_counterexample=True)
 
@@ -138,12 +152,10 @@ def algorithm_3():
             break
         else:  # the ASP violates the spec
             demo = tuple(grouped2(trace))
-            for s,a in demo:
+            for s, a in demo:
                 action_samples[a]['-'].append(s)
 
-# 
-
-
+#
 
 
 def get_args():
