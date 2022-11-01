@@ -2,48 +2,37 @@
 
 from utils import *
 
-# <TODO> get the Action, StaticProperty from Description file
-# <TODO> get the var_map from Description file
 class Action(Terminal):
     __match_args__ = ('term',)
-    finite_iter = None
-    var_map = {'LEFT': 100, 'RIGHT': 101}
+    mapping = dict()
 
     def __init__(self, term) -> None:
         super().__init__(term)
-        self.value = self.var_map[self.term]
+        self.value = self.mapping[self.term]
 
     def __verify__(self) -> bool:
-        match self.term:
-            case 'LEFT' | 'RIGHT':
-                return True
+        if self.term in self.mapping.keys():
+            return True
         return False
 
     @classmethod
     def __simple_enumerate__(cls):
-        if not cls.finite_iter:
-            cls.finite_iter = [cls(a) for a in ['LEFT', 'RIGHT']]
-        yield from cls.finite_iter
-
+        yield from [cls(k) for k in cls.mapping.keys()]
 
 class StaticProperty(Terminal):
-    finite_iter = None
+    props = set()
     def __verify__(self) -> bool:
-        match self.term:
-            case 'WALL' | 'CHECKPOINT' | 'WINDOW':
-                return True
+        if self.term in self.props:
+            return True
         return False
 
     @classmethod
     def __simple_enumerate__(cls):
-        if not cls.finite_iter:
-            cls.finite_iter = [cls(p) for p in ['WALL', 'CHECKPOINT', 'WINDOW']]
-        yield from cls.finite_iter
+        yield from [cls(p) for p in cls.props]
 
     @classmethod
     def __param_enumerate_1__(cls, props_list):
-        L =  [cls(x) for x in props_list]
-        yield from L
+        yield from [cls(x) for x in props_list if x in cls.props]
 
 class Vector(Terminal):
     finite_iter = None
@@ -66,6 +55,11 @@ class Vector(Terminal):
     def __param_enumerate_1__(cls, max_vision):
         L =  [cls(x) for x in range(-max_vision, max_vision+1) if x != 0]
         yield from L
+
+
+def get_terminals_from_config(config):
+    Action.mapping = dict((act['name'], act['value']) for act in config['Action'])
+    StaticProperty.props = set(prop['name'] for prop in config['StaticProperty'])
 
 # <TODO> handling vector add quickly in 2D
 class Position(NonTerminal):
@@ -246,6 +240,9 @@ class ASP(NonTerminal):
 
 
 if __name__ == '__main__':
+    config = open_config_file('descriptions/1d-hallway.yml')
+    get_terminals_from_config(config)
+
     wall = StaticProperty('WALL')
     left_act = Action('LEFT')
     right_act = Action('RIGHT')

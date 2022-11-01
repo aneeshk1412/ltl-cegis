@@ -1,9 +1,8 @@
 #!/usr/bin/python3
 
-from os import popen
 from coder import make_model_program
 from dsl import *
-from utils import cstr, grouped2
+from utils import cstr, grouped2, open_config_file
 from verifier.verify import verifies
 import argparse
 
@@ -12,7 +11,7 @@ def algorithm_1():
     i = 0
     for prog in ASP.__simple_enumerate__():
         i += 1
-        b, trace = verifies(cstr(prog), get_counterexample=True)
+        b, _ = verifies(cstr(prog), get_counterexample=True)
         print(prog, end='\n')
         print(b)
         print()
@@ -25,7 +24,6 @@ def algorithm_1():
 
 def algorithm_2():
     negative_demo_set = list()
-    positive_demo_set = list()
     i = 0
     for prog in ASP.__simple_enumerate__():
         print('-'*75)
@@ -141,21 +139,22 @@ def algorithm_3():
             for s,a in demo:
                 action_samples[a]['-'].append(s)
 
-# 
-
-
-
 
 def get_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--alg', type=int)
+    parser.add_argument('--file', type=str, default='descriptions/1d-hallway.yml')
     return parser.parse_args()
 
 
 if __name__ == '__main__':
-    with open('verifier/model_prog.c', 'w') as f:
-        f.write(str(make_model_program()))
     args = get_args()
+
+    config = open_config_file(args.file)
+    get_terminals_from_config(config)
+    with open('verifier/model_prog.c', 'w') as f:
+        f.write(str(make_model_program(config)))
+    
     if args.alg == 1:
         algorithm_1()
     elif args.alg == 2:

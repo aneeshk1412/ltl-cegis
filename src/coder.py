@@ -1,6 +1,5 @@
 #!/usr/bin/python3
 
-import yaml
 from csnake import (
     CodeWriter, Function, Variable
 )
@@ -14,10 +13,6 @@ class State(object):
 
 inverse_var_map = dict()
 var_map = dict()
-
-def open_config_file(configfile):
-    with open(configfile, 'r') as stream:
-        return yaml.safe_load(stream)
 
 def define_imports_and_extern_lines():
     ''' Defines basic imports and externs required for programs to run '''
@@ -157,8 +152,8 @@ def define_main_lines(config):
     cw.add_function_definition(func)
     return cw
 
-def make_model_program():
-    config = open_config_file('descriptions/1d-hallway.yml')
+def make_model_program(config):
+
     cw = CodeWriter()
 
     cw.add_lines(define_imports_and_extern_lines())
@@ -185,5 +180,7 @@ def make_model_program():
     return cw
 
 if __name__ == '__main__':
-    cw = make_model_program()
+    from utils import open_config_file
+    config = open_config_file('descriptions/1d-hallway.yml')
+    cw = make_model_program(config)
     print(cw)
