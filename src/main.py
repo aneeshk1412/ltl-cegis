@@ -189,6 +189,18 @@ def get_args():
     return parser.parse_args()
 
 
+
+
+def algorithm_4():
+    i = 0
+    for prog in ASP.__param_enumerate_1__(max_vision=10, props_list=['WALL']):
+        print('-'*75)
+        i += 1
+        if i>2000:
+            break
+        print('asp_'+str(i) + ':\n   '+(prog.__pstr__()).replace('\n', '\n   '))
+
+
 if __name__ == '__main__':
     args = get_args()
 
@@ -202,6 +214,7 @@ if __name__ == '__main__':
     elif args.alg == 2:
         algorithm_2()
     else:
-        print('running algorithm 3')
-        algorithm_3()
+        print('running algorithm 4')
+        algorithm_4()
+
         

@@ -63,6 +63,10 @@ class NonTerminal(ABC):
     @abstractmethod
     def __cstr__(self) -> str:
         return ''
+    
+    @abstractmethod
+    def __pstr__(self) -> str:
+        return ''
 
     @abstractmethod
     def __verify__(self) -> bool:
