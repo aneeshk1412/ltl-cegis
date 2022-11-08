@@ -1,4 +1,5 @@
-Dimensions: 1
+Dimensions:
+  x: 0
 
 MaxRobotVision:
   x: 3
