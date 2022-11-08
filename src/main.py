@@ -73,7 +73,7 @@ def gen_ground_truth():
 
     bexp1 = BooleanExp('check_prop', pos1, wall)
     bexp2 = BooleanExp('check_prop', pos2, wall)
-    asp = ASP([bexp1, Action('LEFT')],
+    asp = Transition([bexp1, Action('LEFT')],
               [bexp2, Action('RIGHT')],
               [Action('RIGHT')])
     return asp

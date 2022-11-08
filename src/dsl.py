@@ -4,7 +4,7 @@ from utils import *
 
 class Action(Terminal):
     __match_args__ = ('term',)
-    mapping = dict()
+    mapping = {'NONE': -1}
 
     def __init__(self, term) -> None:
         super().__init__(term)
@@ -48,17 +48,17 @@ class Vector(Terminal):
     @classmethod
     def __simple_enumerate__(cls):
         if not cls.finite_iter:
-            cls.finite_iter = [cls(x) for x in [-3 , -2 , -1 , 1 , 2 , 3]]
+            cls.finite_iter = [cls(x) for x in ['?']]
         yield from cls.finite_iter
 
     @classmethod
     def __param_enumerate_1__(cls, max_vision):
-        L =  [cls(x) for x in range(-max_vision, max_vision+1) if x != 0]
+        L =  [cls(x) for x in ['?']]
         yield from L
 
 
 def get_terminals_from_config(config):
-    Action.mapping = dict((act['name'], act['value']) for act in config['Action'])
+    Action.mapping.update(dict((act['name'], act['value']) for act in config['Action']))
     StaticProperty.props = set(prop['name'] for prop in config['StaticProperty'])
 
 # <TODO> handling vector add quickly in 2D
@@ -159,8 +159,8 @@ class BooleanExp(NonTerminal):
     @classmethod
     def __simple_enumerate__(cls):
         yield from [cls('True'), cls('False')]
-        yield from (cls('eq', 'StateRobotAct', a) for a in Action.__simple_enumerate__())
-        yield from (cls('not', cls('eq', 'StateRobotAct', a)) for a in Action.__simple_enumerate__())
+        # yield from (cls('eq', 'StateRobotAct', a) for a in Action.__simple_enumerate__())
+        # yield from (cls('not', cls('eq', 'StateRobotAct', a)) for a in Action.__simple_enumerate__())
         yield from (cls('check_prop', pos, prop) for pos in Position.__simple_enumerate__() for prop in StaticProperty.__simple_enumerate__())
         yield from (cls('not', cls('check_prop', pos, prop)) for pos in Position.__simple_enumerate__() for prop in StaticProperty.__simple_enumerate__())
         for x, y in icombinations(cls.__simple_enumerate__):
@@ -170,8 +170,8 @@ class BooleanExp(NonTerminal):
     @classmethod
     def __param_enumerate_1__(cls, max_vision, props_list):
         yield from [cls('True'), cls('False')]
-        yield from (cls('eq', 'StateRobotAct', a) for a in Action.__simple_enumerate__())
-        yield from (cls('not', cls('eq', 'StateRobotAct', a)) for a in Action.__simple_enumerate__())
+        # yield from (cls('eq', 'StateRobotAct', a) for a in Action.__simple_enumerate__())
+        # yield from (cls('not', cls('eq', 'StateRobotAct', a)) for a in Action.__simple_enumerate__())
         yield from (cls('check_prop', pos, prop) for pos in Position.__param_enumerate_1__(max_vision) for prop in StaticProperty.__param_enumerate_1__(props_list))
         yield from (cls('not', cls('check_prop', pos, prop)) for pos in Position.__param_enumerate_1__(max_vision) for prop in StaticProperty.__param_enumerate_1__(props_list))
         gen = lambda: cls.__param_enumerate_1__(max_vision, props_list)
@@ -197,7 +197,7 @@ class BooleanExp(NonTerminal):
                 return not self.terms[1].eval(state)
 
 
-class ASP(NonTerminal):
+class Transition(NonTerminal):
     if_else_list = [['if (', ') return '], 
                     ['if (', ') return '],
                     ['else return ']]
@@ -207,7 +207,7 @@ class ASP(NonTerminal):
         match self.terms:
             case [[BooleanExp(), Action('LEFT')], 
                   [BooleanExp(), Action('RIGHT')],
-                  [Action()]]:
+                  [Action('NONE')]]:
                 return True
         return False
 
@@ -222,7 +222,7 @@ class ASP(NonTerminal):
         for bexp1, bexp2 in iproduct(BooleanExp.__simple_enumerate__, BooleanExp.__simple_enumerate__):
             yield cls([bexp1, Action('LEFT')],
                       [bexp2, Action('RIGHT')],
-                      [Action('RIGHT')])
+                      [Action('NONE')])
 
     @classmethod
     def __param_enumerate_1__(cls, max_vision, props_list):
@@ -230,7 +230,7 @@ class ASP(NonTerminal):
         for bexp1, bexp2 in iproduct(gen, gen):
             yield cls([bexp1, Action('LEFT')],
                       [bexp2, Action('RIGHT')],
-                      [Action('RIGHT')])
+                      [Action('NONE')])
 
     def eval(self, state):
         for term in self.terms[:-1]:
@@ -239,6 +239,56 @@ class ASP(NonTerminal):
         return self.terms[-1][0].value
 
 
+class ASP(NonTerminal):
+    def __verify__(self) -> bool:
+        match self.terms:
+            case [[Action('LEFT'), Transition()], 
+                  [Action('RIGHT'), Transition()], 
+                  [Action('NONE')]]:
+                return True
+        return False
+    
+    def __str__(self) -> str:
+        res = ''
+        for act, transition in self.terms[:-1]:
+            res += f"if ({str(BooleanExp('eq', 'StateRobotAct', act))}) "  
+            res += '{\n'
+            res += str(transition)
+            res += '}\n'
+        res += f'return {str(self.terms[-1][0])};\n'
+        return res
+    
+    def __cstr__(self) -> str:
+        res = ''
+        for act, transition in self.terms[:-1]:
+            res += f"if ({cstr(BooleanExp('eq', 'StateRobotAct', act))}) "  
+            res += '{\n'
+            res += cstr(transition)
+            res += '}\n'
+        res += f'return {str(self.terms[-1][0])};\n'
+        return res
+    
+    @classmethod
+    def __simple_enumerate__(cls):
+        for tran1, tran2 in iproduct(Transition.__simple_enumerate__, Transition.__simple_enumerate__):
+            yield cls([Action('LEFT'), tran1],
+                      [Action('RIGHT'), tran2],
+                      [Action('NONE')])
+    
+    @classmethod
+    def __param_enumerate_1__(cls, max_vision, props_list):
+        gen = lambda : Transition.__param_enumerate_1__(max_vision, props_list)
+        for tran1, tran2 in iproduct(gen, gen):
+            yield cls([Action('LEFT'), tran1],
+                      [Action('RIGHT'), tran2],
+                      [Action('NONE')])
+    
+    def eval(self, state):
+        for act, transition in self.terms[:-1]:
+            if state['StateRobotAct'] == act:
+                return transition.eval(state)
+        return self.terms[-1][0].value
+
 if __name__ == '__main__':
     config = open_config_file('descriptions/1d-hallway.yml')
     get_terminals_from_config(config)
@@ -246,14 +296,20 @@ if __name__ == '__main__':
     wall = StaticProperty('WALL')
     left_act = Action('LEFT')
     right_act = Action('RIGHT')
-    dist1 = Vector(1)
-    dist2 = Vector(-1)
+    dist1 = Vector('?')
+    dist2 = Vector('?')
     pos1 = Position('vector_add', 'StateRobotPos', dist1)
     pos2 = Position('vector_add', 'StateRobotPos', dist2)
 
-    bexp1 = BooleanExp('and', BooleanExp('eq', 'StateRobotAct', right_act), BooleanExp('check_prop', pos1, wall))
-    bexp2 = BooleanExp('and', BooleanExp('eq', 'StateRobotAct', left_act), BooleanExp('check_prop', pos2, wall))
-    asp = ASP([bexp1, Action('LEFT')], [bexp2, Action('RIGHT')], [Action('RIGHT')])
+    bexpL = BooleanExp('check_prop', pos1, wall)
+    bexpR = BooleanExp('check_prop', pos2, wall)
+    tranL = Transition([BooleanExp('not', bexpL), Action('LEFT')], [bexpL, Action('RIGHT')], [Action('NONE')])
+    tranR = Transition([bexpR, Action('LEFT')], [BooleanExp('True'), Action('RIGHT')], [Action('NONE')])
+
+    asp = ASP([left_act, tranL], [right_act, tranR], [Action('NONE')])
+
+    print(asp, end='\n\n')
+    print(cstr(asp), end='\n\n')
 
     # print(bexp1, end='\n\n')
     # print(bexp2, end='\n\n')
@@ -269,6 +325,7 @@ if __name__ == '__main__':
         # print(cstr(x), end='\n\n')
         if cstr(x) == cstr(asp):
             print(f'Found Target Program at Iteration: {i}')
+            print(cstr(x))
             break
 
     i = 0
@@ -277,6 +334,7 @@ if __name__ == '__main__':
         # print(cstr(x), end='\n\n')
         if cstr(x) == cstr(asp):
             print(f'Found Target Program at Iteration: {i}')
+            print(x)
             break
 
 '''
