@@ -54,6 +54,7 @@ class NonTerminal(ABC):
     def __init__(self, *args, **kwargs) -> None:
         self.terms = list(args)
         if not self.__verify__():
+            print(self.terms)
             raise NotImplementedError
     
     def __str__(self) -> str:
