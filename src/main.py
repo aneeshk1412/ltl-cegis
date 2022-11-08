@@ -78,41 +78,9 @@ def gen_ground_truth():
               [Action('RIGHT')])
     return asp
 
-
-def compute_max_vision(action_samples, action: int):
-    def is_wall(index):
-        return index <= -500 or index >= 500
-    _max_hallway = 500
-    positive_positions = list(map (lambda s: s['StateRobotPos'], action_samples[action]['+']))
-    negative_positions = list(map (lambda s: s['StateRobotPos'], action_samples[action]['-']))
-    result = _max_hallway
-        
-
-    
-    for i in reversed(range(_max_hallway+1)):
-        pos_wall = []
-        neg_wall = []
-        for p in positive_positions:
-            pos_wall.append(is_wall(p + i))
-        final_check_pos = all(pos_wall) or not any(pos_wall) # make sure they are either all TRUE or all FALSE
-        for p in negative_positions:
-            neg_wall.append(is_wall(p + i))
-        final_check_neg = all(neg_wall) or not any(neg_wall) # make sure they are either all TRUE or all FALSE
-        if final_check_neg and final_check_pos:
-            result = i
-            break
-    return result
-
-
-def compute_props_list(action_samples, action: int):
-    return ['WALL']
-
-
-def algorithm_3():
+def gen_action_samples():
     _right = 101
     _left = 100
-    #ground_truth = gen_ground_truth()
-    # states under which the action was NOT taken
     left_action_negative_samples = [{'StateRobotAct': _left,  'StateRobotPos': 0},
                                     {'StateRobotAct': _right,
                                      'StateRobotPos': -100},
@@ -139,8 +107,40 @@ def algorithm_3():
                                '-': left_action_negative_samples},
                       _right: {'+': right_action_positive_samples,
                                '-': right_action_negative_samples}}
+    return action_samples
 
-    max_vision = compute_max_vision(action_samples, _right)
+def compute_max_vision(action_samples, action: int):
+    def is_wall(index):
+        return index <= -500 or index >= 500
+    _max_hallway = 500
+    positive_positions = list(map (lambda s: s['StateRobotPos'], action_samples[action]['+']))
+    negative_positions = list(map (lambda s: s['StateRobotPos'], action_samples[action]['-']))
+    result = _max_hallway
+        
+
+    
+    for i in reversed(range(_max_hallway+1)):
+        pos_wall = []
+        neg_wall = []
+        for p in positive_positions:
+            pos_wall.append(is_wall(p + i))
+        final_check_pos = all(pos_wall) or not any(pos_wall) # make sure they are either all TRUE or all FALSE
+        for p in negative_positions:
+            neg_wall.append(is_wall(p + i))
+        final_check_neg = all(neg_wall) or not any(neg_wall) # make sure they are either all TRUE or all FALSE
+        if final_check_neg and final_check_pos:
+            result = i
+            break
+    return result
+def compute_props_list(action_samples, action: int):
+    return ['WALL']
+
+
+def algorithm_3():
+    _right = 101
+    _left = 100
+    action_samples = gen_action_samples()
+    max_vision = 150#compute_max_vision(action_samples, _right)
     props_list = compute_props_list(action_samples, _right)
 
     i = 0
@@ -178,6 +178,7 @@ def algorithm_3():
             op = trace[1]
             s0 = trace[0]
             action_samples[op]['-'].append(s0)
+        
 
 
 def get_args():
@@ -203,3 +204,4 @@ if __name__ == '__main__':
     else:
         print('running algorithm 3')
         algorithm_3()
+        
