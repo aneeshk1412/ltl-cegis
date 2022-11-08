@@ -1,6 +1,8 @@
 #!/usr/bin/python3
 
 from operator import neg
+from z3 import *
+from smt.encoding import complete_sketch
 from coder import make_model_program
 from dsl import *
 from utils import cstr, grouped2, open_config_file
@@ -81,38 +83,6 @@ def gen_ground_truth():
     asp = ASP([Action('LEFT'), tr_from_left], [Action(
         'RIGHT'), tr_from_right], [Action('NONE')])
     return asp
-
-
-def gen_action_samples():
-    _right = 101
-    _left = 100
-    left_action_negative_samples = [{'StateRobotAct': _left,  'StateRobotPos': 0},
-                                    {'StateRobotAct': _right,
-                                     'StateRobotPos': -100},
-                                    {'StateRobotAct': _left,
-                                     'StateRobotPos': 485},
-                                    {'StateRobotAct': _left,
-                                     'StateRobotPos': -495}
-                                    ]
-    right_action_negative_samples = [{'StateRobotAct': _right, 'StateRobotPos': 495}
-                                     ]
-    left_action_positive_samples = [{'StateRobotAct': _right, 'StateRobotPos': 491}
-                                    ]
-    right_action_positive_samples = [{'StateRobotAct': _left,  'StateRobotPos': 0},
-                                     {'StateRobotAct': _right, 'StateRobotPos': 1},
-                                     {'StateRobotAct': _right,
-                                         'StateRobotPos': 100},
-                                     {'StateRobotAct': _right,
-                                         'StateRobotPos': 485},
-                                     {'StateRobotAct': _right,
-                                         'StateRobotPos': -499}
-                                     ]
-
-    action_samples = {_left:  {'+': left_action_positive_samples,
-                               '-': left_action_negative_samples},
-                      _right: {'+': right_action_positive_samples,
-                               '-': right_action_negative_samples}}
-    return action_samples
 
 
 def compute_max_vision(action_samples, action: int):
@@ -198,19 +168,52 @@ def get_args():
     return parser.parse_args()
 
 
+def gen_action_samples():
+    state_robot_samples = {'LL': {'+': [400, 490, 499, 100, 10, 0, -10, -50, -100, -485],
+                                  '-': [-500, -495, -490]},
+                           'LR': {'+': [-500, -495, -490],
+                                  '-': [400, 490, 499, 100, 10, 0, -10, -50, -100, -485]},
+                           'RR': {'+': [-485, -100, -10, 0, 100, 485],
+                                  '-': [500, 495, 490]},
+                           'RL': {'+': [500, 495, 490],
+                                  '-': [-485, -100, -10, 0, 100, 485]}}
+    return state_robot_samples
+
+
 def algorithm_4():
     gt = gen_ground_truth()
+    print('='*75)
+    print('Ground Truth Program:')
     print(gt.__pstr__())
-    #print ('hello world')
-    return
+    print('='*75)
 
-    i = 0
-    for prog in ASP.__param_enumerate_1__(max_vision=10, props_list=['WALL']):
-        print('-'*75)
-        i += 1
-        if i > 2000:
-            break
-        print('asp_'+str(i) + ':\n   '+(prog.__pstr__()).replace('\n', '\n   '))
+    action_samples = gen_action_samples()
+    result = {'LL': None, 'LR': None, 'RL': None, 'RR': None}
+
+    for action_pair in {'LL', 'LR', 'RL', 'RR'}:
+        iter = 0
+        #print ('*'*50)
+        #print('synthesizing the condition for '+ action_pair)
+        for sketch in BooleanExp.__simple_enumerate__():
+            if iter > 15:
+                break
+            iter += 1
+            # for now let's focus only on sketches with a WALL 
+            if not str(sketch).__contains__('?') or not str(sketch).__contains__('WALL'):
+                continue
+            prog = complete_sketch(sketch,
+                                   pos_samples=action_samples[action_pair]['+'],
+                                   neg_samples=action_samples[action_pair]['-'])
+            print ('-'*15)
+            if not prog=='??':
+                result[action_pair] = prog
+            else:  # the solver could not find a completion of the given sketch consistent with the given samples
+                continue
+            
+    for key in {'LL', 'LR', 'RL', 'RR'}:
+        print(key + ":   " + str(result[key]))
+
+    return
 
 
 if __name__ == '__main__':
@@ -228,3 +231,4 @@ if __name__ == '__main__':
     else:
         print('running algorithm 4')
         algorithm_4()
+      
