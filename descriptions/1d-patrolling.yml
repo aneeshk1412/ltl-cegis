@@ -1,0 +1,58 @@
+Dimensions: 1
+
+MaxRobotVision:
+  x: 3
+
+StaticProperty:
+- name: WALL
+  include: False
+  ranges:
+  - x: [-10, 10]
+- name: CHECKPOINT1
+  include: True
+  ranges:
+  - x: -8
+- name: CHECKPOINT2
+  include: True
+  ranges:
+  - x: 8
+
+Action:
+- name: LEFT
+  value: 102
+  update: p.x = p.x - 1
+- name: RIGHT
+  value: 101
+  update: p.x = p.x + 1
+- name: NONE
+  value: 100
+  update: '__VERIFIER_error()'
+
+State:
+- name: StateRobotPos
+  type: Vector
+  init: random
+  ranges:
+  - x: [-10, 10]
+- name: StateRobotAct
+  type: int
+  init: random
+  ranges:
+  - LEFT
+  - RIGHT
+
+AtomicPropositions:
+- name: hits_wall
+  init: 0
+  value: 'check_prop_WALL(StateRobotPos) == 1'
+- name: reaches_checkpoint1
+  init: 0
+  value: 'check_prop_CHECKPOINT1(StateRobotPos) == 1'
+- name: reaches_checkpoint2
+  init: 0
+  value: 'check_prop_CHECKPOINT2(StateRobotPos) == 1'
+
+LTLSpec: '[]<>(AP(reaches_checkpoint1)) && []<>(AP(reaches_checkpoint2))'
+
+AssertSpecs:
+- 'hits_wall'
