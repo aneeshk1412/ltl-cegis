@@ -53,7 +53,7 @@ AtomicPropositions:
   init: 0
   value: 'check_prop_CHECKPOINT2(StateRobotPos) == 1'
 
-LTLSpec: '[]<>(AP(reaches_checkpoint1)) && []<>(AP(reaches_checkpoint2))'
+LTLSpec: '[]<>(AP(reaches_checkpoint1 == 1)) && []<>(AP(reaches_checkpoint2 == 1))'
 
 AssertSpecs:
 - 'hits_wall'
