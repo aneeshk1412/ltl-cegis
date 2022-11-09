@@ -46,3 +46,12 @@ export JRE_HOME
     - All specifications hold
 - RESULT: Ultimate proved your program to be incorrect!
     - LTLInfiniteCounterExampleResult
+
+### prog_test.c results
+#### 1D Program, do not hit wall, patrolling
+
+Safety SAT : 40s (correct program)
+Safety UNSAT : 5s (does not check wall, oscillate)
+
+Liveness SAT : 4min (correct program)
+Liveness UNSAT : 10s (does not check wall, oscillate)
