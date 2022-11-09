@@ -51,12 +51,14 @@ def call_ultimate(prog_abs_path, property='safety'):
 def verifies(c_model_prog, c_asp, property='safety'):
     c_prog = c_model_prog.replace('INSERT_ASP', c_asp)
     with open(abs_path('tempprog.c'), 'w') as fp:
-        fp.write('tempprog.c')
+        fp.write(c_prog)
     result = call_ultimate(abs_path('tempprog.c'), property)
     os.remove(abs_path('tempprog.c'))
     return parse_result(result)
 
 if __name__ == '__main__':
-    b, trace = parse_result(call_ultimate(abs_path('prog_test.c'), 'safety'))
+    result = call_ultimate(abs_path('prog_test.c'), 'safety')
+    b, trace = parse_result(result)
+    print(result)
     print(b)
     print(trace)
