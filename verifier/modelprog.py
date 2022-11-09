@@ -1,14 +1,13 @@
 #!/usr/bin/python3
 
-import yaml
 from csnake import (
-    CodeWriter, Function, Variable, Struct
+    CodeWriter, Function, Variable
 )
 
-def open_config_file(configfile):
-    with open(configfile, 'r') as stream:
-        return yaml.safe_load(stream)
-
+def define_liveness_spec(config):
+    cw = CodeWriter()
+    cw.add_line(f'//@ ltl invariant positive: {config["LivenessSpec"]};')
+    return cw
 
 def define_imports_and_extern():
     ''' Defines basic imports and externs required for programs to run '''
@@ -22,195 +21,172 @@ def define_imports_and_extern():
     ])
     return cw
 
+def variables_action_enums(config):
+    return {action: Variable(action, 'int', value=details['value']) for action, details in config['Action'].items()}
 
-def define_vector_struct(config):
-    vec = Struct('Vector', typedef=True)
-    for e in config['Dimensions']:
-        vec.add_variable((e, 'int'))
-    return vec.generate_declaration()
+def variables_state(config):
+    mapping = dict()
+    for statevar, details in config['State'].items():
+        if details['type'] == 'Vector':
+            vector_map = dict()
+            for dim in config['Dimensions']:
+                vector_map[dim] = Variable(statevar + dim, 'int')
+            mapping[statevar] = vector_map
+        else:
+            mapping[statevar] = Variable(statevar, details['type'])
+    return mapping
 
-
-def define_vector_add(config):
-    func = Function('vector_add', 'Vector')
-    func.add_arguments([('p', 'Vector')] + [(f'd{e}', 'int') for e in config['Dimensions']])
-    for e in config['Dimensions']:
-        func.add_code(f'p.{e} = p.{e} + d{e};')
-    func.add_code('return p;')
-    return func.generate_definition()
-
-
-def define_static_property_function(config):
-    ''' Defines all the check_prop_X(Position) functions for every static property X '''
-    cw = CodeWriter()
-    for prop in config['StaticProperty']:
-        bit = 1 if prop['include'] else 0
-
-        func = Function(f"check_prop_{prop['name']}", 'int')
-        func.add_argument(('p', 'Vector'))
-
-        for box in prop['ranges']:
-            cond = []
-            for k, rnge in box.items():
-                match rnge:
-                    case int():
-                        cond.append(f'(p.{k} == {rnge})')
-                    case [int(), int()]:
-                        cond.append(f'(p.{k} >= {rnge[0]} && p.{k} <= {rnge[1]})')
-            func.add_code(f"if ({' && '.join(cond)}) return {bit};")
-        
-        func.add_code(f'return {1-bit};')
-        cw.add_function_definition(func)
-    return cw
-
-
-def define_action_enums(config):
-    cw = CodeWriter()
-    for act in config['Action']:
-        v = Variable(act['name'], 'int', value=act['value'])
-        cw.add_line(str(v.generate_initialization()))
-    return cw
-
-
-def define_action_semantics(config):
-    func = Function('update_pos_from_action', 'Vector')
-    func.add_arguments([('act', 'int'), ('p', 'Vector')])
-    for act in config['Action']:
+def function_action_semantics_for_var(config, var):
+    func = Function(f'update_{var}_from_action', 'void', arguments=[('act', 'int')])
+    for action, details in config['Action'].items():
         # <TODO> parse act['update'] from dsl form to C form
-        func.add_code(f"if (act == {act['name']}) {act['update']};")
-    func.add_code('return p;')
-    return func.generate_definition()
+        func.add_code(f"if (act == {action}) {details['update'].replace('p', var)};")
+    return func
 
+def function_static_property_function(prop, details, config):
+    ''' Returns check_prop_X(Position) function for static property X '''
+    bit = 1 if details['include'] else 0
+    func = Function(f"check_prop_{prop}", 'int', arguments=[(f'p{dim}', 'int') for dim in config['Dimensions']])
+    for box in details['ranges']:
+        cond = []
+        for k, rnge in box.items():
+            match rnge:
+                case int():
+                    cond.append(f'(p{k} == {rnge})')
+                case [int(), int()]:
+                    cond.append(f'(p{k} >= {rnge[0]} && p{k} <= {rnge[1]})')
+        func.add_code(f'if ({" && ".join(cond)}) return {bit};')
+    func.add_code(f'return {1-bit};')
+    return func
 
-def define_state_variables(config):
+def define_atomic_propositions(config):
     cw = CodeWriter()
-    for var in config['State']:
-        v = Variable(var['name'], var['type'])
-        cw.add_variable_declaration(v)
+    for propos, details in config['AtomicPropositions'].items():
+        v = Variable(propos, 'int', value=details['init'])
+        cw.add_variable_initialization(v)
     return cw
 
+def function_compute_atomic_propositions(config):
+    func = Function('compute_atomic_propositions', 'void')
+    for propos, details in config['AtomicPropositions'].items():
+        # <TODO> parse spec statement from a DSL statement
+        func.add_code(f'{propos} = {details["value"]};')
+    return func
 
-def define_initialization(config):
-    func = Function('initialize', 'void')
-    for var in config['State']:
-        if var['type'] == 'Vector':
-            for k in config['Dimensions']:
-                func.add_code(f'{var["name"]}.{k} = __VERIFIER_nondet_int();')
-            cond = []
-            for box in var['ranges']:
-                cond_box = []
-                for k, rnge in box.items():
-                    match rnge:
-                        case int():
-                            cond_box.append(f'({var["name"]}.{k} == {rnge})')
-                        case [int(), int()]:
-                            cond_box.append(f'({var["name"]}.{k} >= {rnge[0]} && {var["name"]}.{k} <= {rnge[1]})')
-                cond.append('(' + " && ".join(cond_box) + ')')
-            func.add_code(f'__VERIFIER_assume(({" || ".join(cond)}));')
-        if var['type'] == 'int':
-            func.add_code(f'{var["name"]} = __VERIFIER_nondet_int();')
-            cond = []
-            for rnge in var['ranges']:
-                match rnge:
-                    case int() | str():
-                        cond.append(f'({var["name"]} == {rnge})')
-                    case [int(), int()]:
-                        cond.append(f'({var["name"]} >= {rnge[0]} && {var["name"]}.{k} <= {rnge[1]})')
-            func.add_code(f'__VERIFIER_assume(({" || ".join(cond)}));')
-    cw = CodeWriter()
-    cw.add_function_definition(func)
-    return cw
-
-
-def define_policy():
-    cw = CodeWriter()
+def function_policy():
     func_policy = Function('policy', 'int')
     func_policy.add_code('INSERT_ASP')
     func_policy.add_code('return NONE;')
-    cw.add_function_definition(func_policy)
-    return cw
+    return func_policy
 
+def function_initialization(config):
+    func = Function('initialize', 'void')
+    for statevar, details in config['State'].items():
+        if details['type'] == 'Vector':
+            for dim in config['Dimensions']:
+                func.add_code(f'{statevar}{dim} = __VERIFIER_nondet_int();')
+            cond = []
+            for box in details['ranges']:
+                cond_box = []
+                for dim, rnge in box.items():
+                    match rnge:
+                        case int():
+                            cond_box.append(f'({statevar}{dim} == {rnge})')
+                        case [int(), int()]:
+                            cond_box.append(f'({statevar}{dim} >= {rnge[0]} && {statevar}{dim} <= {rnge[1]})')
+                cond.append('(' + " && ".join(cond_box) + ')')
+            func.add_code(f'__VERIFIER_assume(({" || ".join(cond)}));')
+        if details['type'] == 'int':
+            func.add_code(f'{statevar} = __VERIFIER_nondet_int();')
+            cond = []
+            for rnge in details['ranges']:
+                match rnge:
+                    case int() | str():
+                        cond.append(f'({statevar} == {rnge})')
+                    case [int(), int()]:
+                        cond.append(f'({statevar} >= {rnge[0]} && {details["name"]}.{dim} <= {rnge[1]})')
+            func.add_code(f'__VERIFIER_assume(({" || ".join(cond)}));')
+    return func
 
-def define_asserts(config, indents=0):
-    cw = CodeWriter()
-    for _ in range(indents):
-        cw.indent()
-    for aspec in config['AssertSpecs']:
+def add_safety_specs_to_cw(cw, config):
+    for aspec in config['SafetySpecs']:
         cw.add_line(f'if ({aspec}) {{')
         cw.indent()
         cw.add_line('__VERIFIER_error();')
         cw.dedent()
         cw.add_line('}')
-    for _ in range(indents):
-        cw.dedent()
-    return cw
-
-
-def define_compute_atomic_propositions(config):
-    cw = CodeWriter()
-    func = Function('compute_atomic_propositions', 'void')
-    for spec in config['AtomicPropositions']:
-        v = Variable(spec['name'], 'int', value=spec['init'])
-        cw.add_variable_initialization(v)
-        # <TODO> parse spec statement from a DSL statement
-        func.add_code(f'{spec["name"]} = {spec["value"]};')
-    cw.add_function_definition(func)
-    return cw
-
-
-def define_spec(config):
-    cw = CodeWriter()
-    cw.add_line(f'//@ ltl invariant positive: {config["LTLSpec"]};')
-    return cw
-
-
-def define_main(config):
-    func = Function('main', 'int')
-    func.add_code('initialize();')
-    func.add_code('compute_atomic_propositions();')
-    func.add_code(define_asserts(config, 0))
-    func.add_code('while (1) {')
-    func.add_code('    StateRobotAct = policy();')
-    func.add_code('    StateRobotPos = update_pos_from_action(StateRobotAct, StateRobotPos);')
-    func.add_code('    compute_atomic_propositions();')
-    func.add_code(define_asserts(config, 1))
-    func.add_code('}')
-    cw = CodeWriter()
-    cw.add_function_definition(func)
-    return cw
-
 
 def make_model_program(config):
-
     cw = CodeWriter()
 
-    cw.add_lines(define_spec(config))
+    cw.add_lines(define_liveness_spec(config))
     cw.add_line()
     cw.add_lines(define_imports_and_extern())
     cw.add_line()
-    cw.add_lines(define_vector_struct(config))
+
+    action_vars_map = variables_action_enums(config)
+    for var in action_vars_map.values():
+        cw.add_variable_initialization(var)
     cw.add_line()
-    cw.add_lines(define_vector_add(config))
+
+    state_vars_map = variables_state(config)
+    for x in state_vars_map.values():
+        if isinstance(x, dict):
+            for y in x.values():
+                cw.add_variable_declaration(y)
+        else:
+            cw.add_variable_declaration(x)
     cw.add_line()
-    cw.add_lines(define_action_enums(config))
+
+    semantics = ['StateRobotPos']
+    action_semantic_funcs = [function_action_semantics_for_var(config, v) for v in semantics]
+    for func in action_semantic_funcs:
+        cw.add_function_definition(func)
+        cw.add_line()
+
+    static_prop_funcs = [function_static_property_function(stprop, details, config) for stprop, details in config['StaticProperty'].items()]
+    for func in static_prop_funcs:
+        cw.add_function_definition(func)
     cw.add_line()
-    cw.add_lines(define_action_semantics(config))
+
+    cw.add_lines(define_atomic_propositions(config))
     cw.add_line()
-    cw.add_lines(define_static_property_function(config))
+    compute_atprop_func = function_compute_atomic_propositions(config)
+    cw.add_function_definition(compute_atprop_func)
     cw.add_line()
-    cw.add_lines(define_state_variables(config))
+
+    policy_func = function_policy()
+    cw.add_function_definition(policy_func)
     cw.add_line()
-    cw.add_lines(define_initialization(config))
+
+    init_func = function_initialization(config)
+    cw.add_function_definition(init_func)
     cw.add_line()
-    cw.add_lines(define_policy())
-    cw.add_line()
-    cw.add_lines(define_compute_atomic_propositions(config))
-    cw.add_line()
-    cw.add_lines(define_main(config))
+
+    main_cw = CodeWriter()
+    main_cw.add_function_call(init_func)
+    main_cw.add_function_call(compute_atprop_func)
+    add_safety_specs_to_cw(main_cw, config)
+
+    main_cw.add_line('while (1)')
+    main_cw.open_brace()
+    main_cw.add_line(f'StateRobotAct = {policy_func.generate_call()};')
+    main_cw.add_function_call(compute_atprop_func)
+    for func, var in zip(action_semantic_funcs, semantics):
+        main_cw.add_line(f'{func.name}({config["State"][var]["acted"]})')
+    add_safety_specs_to_cw(main_cw, config)
+    main_cw.close_brace()
+
+    main_func = Function('main', 'int')
+    main_func.add_code(main_cw)
+    cw.add_function_definition(main_func)
     cw.add_line()
 
     return cw
 
 if __name__ == '__main__':
-    config = open_config_file('../descriptions/1d-patrolling.yml')
+    import yaml
+    with open('../descriptions/1d-patrolling.yml', 'r') as stream:
+        config = yaml.safe_load(stream)
     cw = make_model_program(config)
     print(cw)
