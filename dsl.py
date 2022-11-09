@@ -1,11 +1,65 @@
-#!/usr/bin/python
+#!/usr/bin/python3
+
+from abc import ABC, abstractmethod
+from itertools import product
 
 from utils import *
 
+class Terminal(ABC):
+    def __init__(self, term) -> None:
+        self.term = term
+        if not self.__verify__():
+            print(self.term)
+            raise NotImplementedError
+    
+    def __str__(self) -> str:
+        return str(self.term)
+
+    def __cstr__(self) -> str:
+        return str(self.term)
+
+    @abstractmethod
+    def __verify__(self) -> bool:
+        pass
+
+    @classmethod
+    @abstractmethod
+    def __simple_enumerate__(cls):
+        pass
+
+class NonTerminal(ABC):
+    def __init__(self, *args, **kwargs) -> None:
+        self.terms = list(args)
+        if not self.__verify__():
+            print(self.terms)
+            raise NotImplementedError
+    
+    def __str__(self) -> str:
+        return ''
+    
+    @abstractmethod
+    def __cstr__(self) -> str:
+        return ''
+    
+    @abstractmethod
+    def __pstr__(self) -> str:
+        return ''
+
+    @abstractmethod
+    def __verify__(self) -> bool:
+        pass
+
+    @classmethod
+    @abstractmethod
+    def __simple_enumerate__(cls):
+        pass
+
+    @classmethod
+    def __sketch_enumerate__(cls):
+        pass
 
 class Action(Terminal):
     __match_args__ = ('term',)
-    mapping = {'NONE': -1}
 
     def __init__(self, term) -> None:
         super().__init__(term)
@@ -20,6 +74,9 @@ class Action(Terminal):
     def __simple_enumerate__(cls):
         yield from [cls(k) for k in cls.mapping.keys()]
 
+    @classmethod
+    def __sketch_enumerate__(cls):
+        yield from [cls(k) for k in cls.mapping.keys()]
 
 class StaticProperty(Terminal):
     props = set()
@@ -34,42 +91,40 @@ class StaticProperty(Terminal):
         yield from [cls(p) for p in cls.props]
 
     @classmethod
-    def __param_enumerate_1__(cls, props_list):
-        yield from [cls(x) for x in props_list if x in cls.props]
-
+    def __sketch_enumerate__(cls):
+        # <TODO> make this a hole
+        yield from [cls(p) for p in cls.props]
 
 class Vector(Terminal):
+    ''' self.term = (xval, yval) '''
+    max_robot_vision = None
+    zero_vec = None
     finite_iter = None
 
     def __verify__(self) -> bool:
+        if len(self.term) != len(self.max_robot_vision):
+            return False
+        if all(t == '?' for t in self.term):
+            return True
+        if any(abs(t) > v for t, v in zip(self.term, self.max_robot_vision.values())):
+            return False
         return True
-        # XXX
-        # TODO: this needs to be fixed
-        match self.term:
-            case -3 | -2 | -1 | 1 | 2 | 3:
-                return True
-        return False
 
     @classmethod
     def __simple_enumerate__(cls):
         if not cls.finite_iter:
-            cls.finite_iter = [cls(x) for x in ['?']]
+            cls.finite_iter = [cls(tup) for tup in product(*[range(-v, v+1) for v in cls.max_robot_vision.values()]) if tup != cls.zero_vec]
         yield from cls.finite_iter
 
     @classmethod
-    def __param_enumerate_1__(cls, max_vision):
-        L = [cls(x) for x in ['?']]
-        yield from L
-
+    def __sketch_enumerate__(cls):
+        yield from [cls(tuple('?' for _ in cls.max_robot_vision))]
 
 def get_terminals_from_config(config):
-    Action.mapping.update(dict((act['name'], act['value'])
-                          for act in config['Action']))
-    StaticProperty.props = set(prop['name']
-                               for prop in config['StaticProperty'])
-
-# <TODO> handling vector add quickly in 2D
-
+    Action.mapping = dict((action, details['value']) for action, details in config['Action'].items())
+    StaticProperty.props = set(config['StaticProperty'].keys())
+    Vector.max_robot_vision = config['MaxRobotVision']
+    Vector.zero_vec = tuple(0 for _ in Vector.max_robot_vision)
 
 class Position(NonTerminal):
     finite_iter = None
@@ -326,57 +381,74 @@ class ASP(NonTerminal):
         return self.terms[-1][0].value
 
 
-if __name__ == '__main__':
-    config = open_config_file('descriptions/1d-hallway.yml')
+def print_testing():
+    config = open_config_file('descriptions/1d-patrolling.yml')
     get_terminals_from_config(config)
+    
+    for act in Action.__simple_enumerate__():
+        print(act)
+    print()
+    for act in Action.__sketch_enumerate__():
+        print(act)
+    print()
 
-    wall = StaticProperty('WALL')
-    left_act = Action('LEFT')
-    right_act = Action('RIGHT')
-    dist1 = Vector('?')
-    dist2 = Vector('?')
-    pos1 = Position('vector_add', 'StateRobotPos', dist1)
-    pos2 = Position('vector_add', 'StateRobotPos', dist2)
+    for prop in StaticProperty.__simple_enumerate__():
+        print(prop)
+    print()
+    for prop in StaticProperty.__sketch_enumerate__():
+        print(prop)
+    print()
 
-    bexpL = BooleanExp('check_prop', pos1, wall)
-    bexpR = BooleanExp('check_prop', pos2, wall)
-    tranL = Transition([BooleanExp('not', bexpL), Action('LEFT')], [
-                       bexpL, Action('RIGHT')], [Action('NONE')])
-    tranR = Transition([bexpR, Action('LEFT')], [BooleanExp(
-        'True'), Action('RIGHT')], [Action('NONE')])
+    for tup in Vector.__simple_enumerate__():
+        print(tup)
+    print()
+    for tup in Vector.__sketch_enumerate__():
+        print(tup)
+    print()
 
-    asp = ASP([left_act, tranL], [right_act, tranR], [Action('NONE')])
+    
 
-    print(asp, end='\n\n')
-    print(cstr(asp), end='\n\n')
 
-    # print(bexp1, end='\n\n')
-    # print(bexp2, end='\n\n')
+
+
+
+if __name__ == '__main__':
+    print_testing()
+
+    # wall = StaticProperty('WALL')
+    # left_act = Action('LEFT')
+    # right_act = Action('RIGHT')
+    # dist1 = Vector('?')
+    # dist2 = Vector('?')
+    # pos1 = Position('vector_add', 'StateRobotPos', dist1)
+    # pos2 = Position('vector_add', 'StateRobotPos', dist2)
+
+    # bexpL = BooleanExp('check_prop', pos1, wall)
+    # bexpR = BooleanExp('check_prop', pos2, wall)
+    # tranL = Transition([BooleanExp('not', bexpL), Action('LEFT')], [
+    #                    bexpL, Action('RIGHT')], [Action('NONE')])
+    # tranR = Transition([bexpR, Action('LEFT')], [BooleanExp(
+    #     'True'), Action('RIGHT')], [Action('NONE')])
+
+    # asp = ASP([left_act, tranL], [right_act, tranR], [Action('NONE')])
+
     # print(asp, end='\n\n')
-
-    # print(cstr(bexp1), end='\n\n')
-    # print(cstr(bexp2), end='\n\n')
     # print(cstr(asp), end='\n\n')
 
-    i = 0
-    for x in ASP.__simple_enumerate__():
-        i += 1
-        # print(cstr(x), end='\n\n')
-        if cstr(x) == cstr(asp):
-            print(f'Found Target Program at Iteration: {i}')
-            print(cstr(x))
-            break
+    # i = 0
+    # for x in ASP.__simple_enumerate__():
+    #     i += 1
+    #     # print(cstr(x), end='\n\n')
+    #     if cstr(x) == cstr(asp):
+    #         print(f'Found Target Program at Iteration: {i}')
+    #         print(cstr(x))
+    #         break
 
-    i = 0
-    for x in ASP.__param_enumerate_1__(max_vision=1, props_list=['WALL']):
-        i += 1
-        # print(cstr(x), end='\n\n')
-        if cstr(x) == cstr(asp):
-            print(f'Found Target Program at Iteration: {i}')
-            print(x)
-            break
-
-'''
-    if ((StateRobotAct == RIGHT && check_prop_WALL(vector_add(StateRobotPos, 1)))) return LEFT;
-    if ((StateRobotAct == LEFT && check_prop_WALL(vector_add(StateRobotPos, -1)))) return RIGHT;
-'''
+    # i = 0
+    # for x in ASP.__param_enumerate_1__(max_vision=1, props_list=['WALL']):
+    #     i += 1
+    #     # print(cstr(x), end='\n\n')
+    #     if cstr(x) == cstr(asp):
+    #         print(f'Found Target Program at Iteration: {i}')
+    #         print(x)
+    #         break

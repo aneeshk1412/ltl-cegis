@@ -1,7 +1,6 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 
 import yaml
-from abc import ABC, abstractmethod
 from itertools import count, repeat
 
 def interleave(*iterables):
@@ -27,56 +26,6 @@ def cstr(obj):
         return obj.__cstr__()
     except AttributeError:
         return str(obj)
-
-class Terminal(ABC):
-    def __init__(self, term) -> None:
-        self.term = term
-        if not self.__verify__():
-            raise NotImplementedError
-    
-    def __str__(self) -> str:
-        return str(self.term)
-
-    def __cstr__(self) -> str:
-        return str(self.term)
-
-    @abstractmethod
-    def __verify__(self) -> bool:
-        pass
-
-    @classmethod
-    @abstractmethod
-    def __simple_enumerate__(cls):
-        pass
-
-
-class NonTerminal(ABC):
-    def __init__(self, *args, **kwargs) -> None:
-        self.terms = list(args)
-        if not self.__verify__():
-            print(self.terms)
-            raise NotImplementedError
-    
-    def __str__(self) -> str:
-        return ''
-    
-    @abstractmethod
-    def __cstr__(self) -> str:
-        return ''
-    
-    @abstractmethod
-    def __pstr__(self) -> str:
-        return ''
-
-    @abstractmethod
-    def __verify__(self) -> bool:
-        pass
-
-    @classmethod
-    @abstractmethod
-    def __simple_enumerate__(cls):
-        pass
-
 
 def open_config_file(configfile):
     with open(configfile, 'r') as stream:
