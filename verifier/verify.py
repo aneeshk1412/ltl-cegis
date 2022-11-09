@@ -63,6 +63,22 @@ def verifies(c_asp, get_counterexample=False):
         b, _ = get_proven_or_trace(prog_string.splitlines())
         return b
 
+def call_ultimate(model_prog : str, c_asp : str, property='safety'):
+    model_prog = model_prog.replace('INSERT_ASP', c_asp)
+    with open(abs_path('tempprog.c'), 'w') as fp:
+        fp.writelines(line + '\n' for line in model_prog)
+    
+    if property == 'safety':
+        tc_file = abs_path('config/AutomizerReach.xml')
+        s_file = abs_path('config/svcomp-LTL-64bit-Automizer_Default.epf')
+    elif property == 'liveness':
+        tc_file = abs_path('config/AutomizerLTL.xml')
+        s_file = abs_path('config/svcomp-LTL-64bit-Automizer_Default.epf')
+
+    result = subprocess.run(['Ultimate', '-tc', tc_file, '-s', s_file, '-i', 'tempprog.c'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+
+
 if __name__ == '__main__':
     result = subprocess.run(['Ultimate', abs_path('LTLAutomizerC.xml'), abs_path('test_prog.c'), '--settings', abs_path('Default.epf')], stdout=subprocess.PIPE)
     result = result.stdout.decode('utf-8')
