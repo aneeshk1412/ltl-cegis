@@ -38,3 +38,11 @@ export JRE_HOME
 - Run activate venv again `source ltl-cegis/.venv/bin/activate`
 - Now change directory to `ltl-cegis/src` and run `python test.py`
     - This should run Algorithm 1 (for each enumerated program, check if it verifies the spec, if yes, then stop, else continue)
+
+### Types of Ultimate Results
+- RESULT: Ultimate could not prove your program: Toolchain returned no result.
+    - --- Results ---
+- RESULT: Ultimate proved your program to be correct!
+    - All specifications hold
+- RESULT: Ultimate proved your program to be incorrect!
+    - LTLInfiniteCounterExampleResult
