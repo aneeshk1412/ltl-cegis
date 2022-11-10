@@ -57,7 +57,12 @@ def verifies(c_model_prog, c_asp, property='safety'):
     return parse_result(result)
 
 if __name__ == '__main__':
-    result = call_ultimate(abs_path('prog_test.c'), 'safety')
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--f', type=str, help='Filename')
+    parser.add_argument('--p', type=str, help='Property')
+    args = parser.parse_args()
+    result = call_ultimate(abs_path(args.f), args.p)
     b, trace = parse_result(result)
     print(result)
     print(b)
