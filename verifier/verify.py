@@ -53,7 +53,6 @@ def verifies(c_model_prog, c_asp, property='safety'):
     with open(abs_path('tempprog.c'), 'w') as fp:
         fp.write(c_prog)
     result = call_ultimate(abs_path('tempprog.c'), property)
-    os.remove(abs_path('tempprog.c'))
     return parse_result(result)
 
 if __name__ == '__main__':
@@ -63,7 +62,7 @@ if __name__ == '__main__':
     parser.add_argument('--p', type=str, help='Property')
     args = parser.parse_args()
     result = call_ultimate(abs_path(args.f), args.p)
-    b, trace = parse_result(result)
     print(result)
+    b, trace = parse_result(result)
     print(b)
     print(trace)

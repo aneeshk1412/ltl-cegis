@@ -1,0 +1,68 @@
+dimensions:
+  x: 0
+  y: 1
+
+maxRobotVision:
+  x: 3
+  y: 3
+
+staticProperty:
+  WALL:
+    include: False
+    ranges:
+    - x: [-10, 10]
+      y: [-5, 5]
+  CHECKPOINT1:
+    include: True
+    ranges:
+    - x: -8
+      y: 4
+  CHECKPOINT2:
+    include: True
+    ranges:
+    - x: 8
+      y: -4
+
+actionTypes:
+  robotAction:
+    actions:
+      UP:
+        update: p.y = p.y + 1
+      DOWN:
+        update: p.y = p.y - 1
+      LEFT:
+        update: p.x = p.x - 1
+      RIGHT:
+        update: p.x = p.x + 1
+      NONE:
+        update: p.x = p.x
+    mapping:
+    - p
+
+state:
+  StateRobotPos:
+    type: vector
+    init: random
+    ranges:
+    - x: [-10, 10]
+      y: [-5, 5]
+  StateRobotAct:
+    type: robotAction
+    mapping:
+      p: StateRobotPos
+
+atomicPropositions:
+  HitsWall:
+    init: 0
+    value: 'check_prop_WALL(StateRobotPosx, StateRobotPosy) == 1'
+  ReachesCheckpoint1:
+    init: 0
+    value: 'check_prop_CHECKPOINT1(StateRobotPosx, StateRobotPosy) == 1'
+  ReachesCheckpoint2:
+    init: 0
+    value: 'check_prop_CHECKPOINT2(StateRobotPosx, StateRobotPosy) == 1'
+
+livenessSpec: '[]<>(AP(reaches_checkpoint1 == 1)) && []<>(AP(reaches_checkpoint2 == 1))'
+
+safetySpecs:
+- 'HitsWall == 0'

@@ -34,7 +34,7 @@ def variables_action_enums(config):
 def variables_state(config):
     mapping = dict()
     for statevar, details in config['state'].items():
-        if details['type'] == 'Vector':
+        if details['type'] == 'vector':
             vector_map = dict()
             for dim in config['dimensions']:
                 vector_map[dim] = Variable(statevar + dim, 'int')
@@ -56,7 +56,6 @@ def function_action_semantics_for_act_var(config, act_var):
     for k, v in var_mapping.items():
         lines = lines.replace(k + '.', v)
     func.add_code(lines)
-    print(func.generate_definition())
     return func
 
 def function_static_property_function(prop, details, config):
@@ -75,11 +74,12 @@ def function_static_property_function(prop, details, config):
     func.add_code(f'return {1-bit};')
     return func
 
-def define_atomic_propositions(config):
+def define_atomic_propositions(config, debug_list):
     cw = CodeWriter()
     for propos, details in config['atomicPropositions'].items():
         v = Variable(propos, 'int', value=details['init'])
         cw.add_variable_initialization(v)
+        debug_list.append(v.name)
     return cw
 
 def function_compute_atomic_propositions(config):
@@ -132,7 +132,7 @@ def function_initialization(config):
 
 def add_safety_specs_to_cw(cw, config):
     for aspec in config['safetySpecs']:
-        cw.add_line(f'//@assert ({aspec});')
+        cw.add_line(f'//@ assert ({aspec});')
 
 def make_model_program(config):
     cw = CodeWriter()
@@ -147,13 +147,16 @@ def make_model_program(config):
         cw.add_variable_initialization(var)
     cw.add_line()
 
+    debug_list = []
     state_vars_map = variables_state(config)
     for x in state_vars_map.values():
         if isinstance(x, dict):
             for y in x.values():
                 cw.add_variable_declaration(y)
+                debug_list.append(y.name)
         else:
             cw.add_variable_declaration(x)
+            debug_list.append(x.name)
     cw.add_line()
 
     actions = ['StateRobotAct']
@@ -167,7 +170,7 @@ def make_model_program(config):
         cw.add_function_definition(func)
     cw.add_line()
 
-    cw.add_lines(define_atomic_propositions(config))
+    cw.add_lines(define_atomic_propositions(config, debug_list))
     cw.add_line()
     compute_atprop_func = function_compute_atomic_propositions(config)
     cw.add_function_definition(compute_atprop_func)
@@ -193,6 +196,8 @@ def make_model_program(config):
         main_cw.add_line(f'{func.generate_call()};')
     main_cw.add_function_call(compute_atprop_func)
     add_safety_specs_to_cw(main_cw, config)
+    debug_line = f'printf("{", ".join(d + ": %d" for d in debug_list)}\\n", {", ".join(debug_list)});'
+    main_cw.add_line(debug_line)
     main_cw.close_brace()
 
     main_func = Function('main', 'int')
@@ -204,7 +209,7 @@ def make_model_program(config):
 
 if __name__ == '__main__':
     import yaml
-    with open('../descriptions/2d-patrolling.yml', 'r') as stream:
+    with open('../descriptions/1d-jumping.yml', 'r') as stream:
         config = yaml.safe_load(stream)
     cw = make_model_program(config)
     print(cw)
