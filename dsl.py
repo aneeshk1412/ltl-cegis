@@ -137,9 +137,6 @@ class Position(NonTerminal):
                 return True
         return False
 
-    def __pstr__(self) -> str:
-        return self.__cstr__()
-
     def __str__(self) -> str:
         match self.terms:
             case ['StateRobotPos']:
@@ -157,15 +154,8 @@ class Position(NonTerminal):
     @classmethod
     def __simple_enumerate__(cls):
         if not cls.finite_iter:
-            cls.finite_iter = [cls('StateRobotPos')] + [cls('vector_add',
-                                                            'StateRobotPos', v) for v in Vector.__simple_enumerate__()]
+            cls.finite_iter = [cls('StateRobotPos')] + [cls('vector_add', 'StateRobotPos', v) for v in Vector.__simple_enumerate__()]
         yield from cls.finite_iter
-
-    @classmethod
-    def __param_enumerate_1__(cls, max_vision):
-        L = [cls('StateRobotPos')] + [cls('vector_add', 'StateRobotPos', v)
-                                      for v in Vector.__param_enumerate_1__(max_vision)]
-        yield from L
 
     def eval(self, state):
         match self.terms:
@@ -405,10 +395,6 @@ def print_testing():
     for tup in Vector.__sketch_enumerate__():
         print(tup)
     print()
-
-    
-
-
 
 
 

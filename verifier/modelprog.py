@@ -198,10 +198,13 @@ def make_model_program(config):
     add_safety_specs_to_cw(main_cw, config)
     debug_line = f'printf("{", ".join(d + ": %d" for d in debug_list)}\\n", {", ".join(debug_list)});'
     main_cw.add_line(debug_line)
+    main_cw.add_line('T++;')
     main_cw.close_brace()
+
 
     main_func = Function('main', 'int')
     main_func.add_code(main_cw)
+    cw.add_variable_initialization(Variable('T', 'int', value=0))
     cw.add_function_definition(main_func)
     cw.add_line()
 
@@ -209,7 +212,11 @@ def make_model_program(config):
 
 if __name__ == '__main__':
     import yaml
-    with open('../descriptions/1d-jumping.yml', 'r') as stream:
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--f', type=str, help='Filename')
+    args = parser.parse_args()
+    with open(args.f, 'r') as stream:
         config = yaml.safe_load(stream)
     cw = make_model_program(config)
     print(cw)

@@ -1,0 +1,78 @@
+dimensions:
+  x: 0
+  y: 1
+
+maxRobotVision:
+  x: 3
+  y: 3
+
+staticProperty:
+  WALL:
+    include: False
+    ranges:
+    - x: [1, 5]
+      y: [1, 6]
+  GOAL:
+    include: False
+    ranges:
+    - x: 5
+      y: 1
+  HOLE:
+    include: True
+    ranges:
+    - x: 3
+      y: 6
+    - x: 4
+      y: 5
+    - x: 3
+      y: 4
+    - x: 3
+      y: 2
+    - x: 3
+      y: 1
+
+actionTypes:
+  robotAction:
+    actions:
+      UP:
+        update: p.y = p.y + 1
+      DOWN:
+        update: p.y = p.y - 1
+      LEFT:
+        update: p.x = p.x - 1
+      RIGHT:
+        update: p.x = p.x + 1
+      NONE:
+        update: p.x = p.x
+    mapping:
+    - p
+
+state:
+  StateRobotPos:
+    type: vector
+    init: random
+    ranges:
+    - x: 1
+      y: 6
+  StateRobotAct:
+    type: robotAction
+    mapping:
+      p: StateRobotPos
+
+atomicPropositions:
+  HitsWall:
+    init: 0
+    value: 'check_prop_WALL(StateRobotPosx, StateRobotPosy) == 1'
+  HitsHole:
+    init: 0
+    value: 'check_prop_HOLE(StateRobotPosx, StateRobotPosy) == 1'
+  ReachesGoal:
+    init: 0
+    value: 'check_prop_GOAL(StateRobotPosx, StateRobotPosy) == 1'
+
+livenessSpec: '[]<>(AP(1 == 1))'
+
+safetySpecs:
+- 'HitsWall == 0'
+- 'HitsHole == 0'
+- '(T > 11) ==> (ReachesGoal == 1)'
