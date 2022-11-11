@@ -10,7 +10,8 @@ global_counter = count(100)
 def define_liveness_spec(config):
     ''' <TODO> Parse the liveness spec from DSL kind language '''
     cw = CodeWriter()
-    cw.add_line(f'//@ ltl invariant positive: {config["livenessSpec"]};')
+    if 'livenessSpec' in config:
+        cw.add_line(f'//@ ltl invariant positive: {config["livenessSpec"]};')
     return cw
 
 def define_imports_and_extern():
@@ -62,15 +63,22 @@ def function_static_property_function(prop, details, config):
     ''' Returns check_prop_X(Position) function for static property X '''
     bit = 1 if details['include'] else 0
     func = Function(f"check_prop_{prop}", 'int', arguments=[(f'p{dim}', 'int') for dim in config['dimensions']])
-    for box in details['ranges']:
-        cond = []
-        for k, rnge in box.items():
-            match rnge:
-                case int():
-                    cond.append(f'(p{k} == {rnge})')
-                case [int(), int()]:
-                    cond.append(f'(p{k} >= {rnge[0]} && p{k} <= {rnge[1]})')
-        func.add_code(f'if ({" && ".join(cond)}) return {bit};')
+    if 'values' in details:
+        conds = dict()
+        for k, rnge in details['values'].items():
+            conds[k] = [f'(p{k} == {r})' for r in rnge]
+        for tup in zip(*conds.values()):
+            func.add_code(f'if ({" && ".join(tup)}) return {bit};')
+    else:
+        for box in details['ranges']:
+            cond = []
+            for k, rnge in box.items():
+                match rnge:
+                    case int():
+                        cond.append(f'(p{k} == {rnge})')
+                    case [int(), int()]:
+                        cond.append(f'(p{k} >= {rnge[0]} && p{k} <= {rnge[1]})')
+            func.add_code(f'if ({" && ".join(cond)}) return {bit};')
     func.add_code(f'return {1-bit};')
     return func
 
@@ -102,15 +110,22 @@ def function_initialization(config):
             for dim in config['dimensions']:
                 func.add_code(f'{statevar}{dim} = __VERIFIER_nondet_int();')
             cond = []
-            for box in details['ranges']:
-                cond_box = []
-                for dim, rnge in box.items():
-                    match rnge:
-                        case int():
-                            cond_box.append(f'({statevar}{dim} == {rnge})')
-                        case [int(), int()]:
-                            cond_box.append(f'({statevar}{dim} >= {rnge[0]} && {statevar}{dim} <= {rnge[1]})')
-                cond.append('(' + " && ".join(cond_box) + ')')
+            if 'values' in details:
+                conds = dict()
+                for k, rnge in details['values'].items():
+                    conds[k] = [f'(p{k} == {r})' for r in rnge]
+                for tup in zip(*conds.values()):
+                    cond.append(f'({" && ".join(tup)})')
+            else:
+                for box in details['ranges']:
+                    cond_box = []
+                    for dim, rnge in box.items():
+                        match rnge:
+                            case int():
+                                cond_box.append(f'({statevar}{dim} == {rnge})')
+                            case [int(), int()]:
+                                cond_box.append(f'({statevar}{dim} >= {rnge[0]} && {statevar}{dim} <= {rnge[1]})')
+                    cond.append('(' + " && ".join(cond_box) + ')')
             func.add_code(f'__VERIFIER_assume(({" || ".join(cond)}));')
         elif details['type'] in config['actionTypes']:
             func.add_code(f'{statevar} = __VERIFIER_nondet_int();')
@@ -131,8 +146,14 @@ def function_initialization(config):
     return func
 
 def add_safety_specs_to_cw(cw, config):
-    for aspec in config['safetySpecs']:
-        cw.add_line(f'//@ assert ({aspec});')
+    if 'safetySpecs' in config:
+        for aspec in config['safetySpecs']:
+            cw.add_line(f'//@ assert ({aspec});')
+
+def add_invariant_specs_to_cw(cw, config):
+    if 'invariantSpecs' in config:
+        for inspec in config['invariantSpecs']:
+            cw.add_line(f'//@ loop invariant ({inspec});')
 
 def make_model_program(config):
     cw = CodeWriter()
@@ -188,6 +209,7 @@ def make_model_program(config):
     main_cw.add_function_call(init_func)
     main_cw.add_function_call(compute_atprop_func)
     add_safety_specs_to_cw(main_cw, config)
+    add_invariant_specs_to_cw(main_cw, config)
 
     main_cw.add_line('while (1)')
     main_cw.open_brace()
@@ -200,7 +222,6 @@ def make_model_program(config):
     main_cw.add_line(debug_line)
     main_cw.add_line('T++;')
     main_cw.close_brace()
-
 
     main_func = Function('main', 'int')
     main_func.add_code(main_cw)

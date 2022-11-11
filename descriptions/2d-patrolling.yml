@@ -11,12 +11,12 @@ staticProperty:
   CHECKPOINT1:
     include: True
     values:
-    - x: [1]
+      x: [1]
       y: [1]
   CHECKPOINT2:
     include: True
     values:
-    - x: [10]
+      x: [10]
       y: [5]
 
 state:
