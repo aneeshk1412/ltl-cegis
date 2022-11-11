@@ -8,15 +8,10 @@ staticProperty:
     ranges:
     - x: [1, 10]
       y: [1, 5]
-  CHECKPOINT1:
+  GOAL:
     include: True
     values:
-    - x: [1]
-      y: [1]
-  CHECKPOINT2:
-    include: True
-    values:
-    - x: [10]
+      x: [10]
       y: [5]
 
 state:
@@ -35,19 +30,17 @@ atomicPropositions:
   HitsWALL:
     init: 0
     value: 'check_prop_WALL(StateRobotPosx, StateRobotPosy) == 1'
-  ReachesCHECKPOINT1:
+  ReachesGOAL:
     init: 0
-    value: 'check_prop_CHECKPOINT1(StateRobotPosx, StateRobotPosy) == 1'
-  ReachesCHECKPOINT2:
-    init: 0
-    value: 'check_prop_CHECKPOINT2(StateRobotPosx, StateRobotPosy) == 1'
+    value: 'check_prop_GOAL(StateRobotPosx, StateRobotPosy) == 1'
 
-livenessSpec: '[]<>(AP(reaches_checkpoint1 == 1)) && []<>(AP(reaches_checkpoint2 == 1))'
+# livenessSpec:
 
 invariantSpecs:
 - 'HitsWALL == 0'
 
-# safetySpecs:
+safetySpecs:
+- '(T > 10 + 5) ==> (ReachesGOAL == 1)'
 
 actionTypes:
   robotAction:
