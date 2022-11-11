@@ -5,8 +5,6 @@ from csnake import (
     CodeWriter, Function, Variable
 )
 
-global_counter = count(100)
-
 def define_liveness_spec(config):
     ''' <TODO> Parse the liveness spec from DSL kind language '''
     cw = CodeWriter()
@@ -29,7 +27,7 @@ def define_imports_and_extern():
 def variables_action_enums(config):
     d = dict()
     for _, actions_dict in config['actionTypes'].items():
-        d.update({action: Variable(action, 'int', value=c) for action, c in zip(actions_dict['actions'], global_counter)})
+        d.update({action: Variable(action, 'int', value=details['value']) for action, details in actions_dict['actions'].items()})
     return d
 
 def variables_state(config):

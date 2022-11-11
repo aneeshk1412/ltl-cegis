@@ -5,11 +5,11 @@ extern void __VERIFIER_error() __attribute__ ((__noreturn__));
 extern void __VERIFIER_assume() __attribute__ ((__noreturn__));
 extern int __VERIFIER_nondet_int() __attribute__ ((__noreturn__));
 
-int UP = 100;
-int DOWN = 101;
+int UP = 104;
+int DOWN = 103;
 int LEFT = 102;
-int RIGHT = 103;
-int NONE = 104;
+int RIGHT = 101;
+int NONE = 100;
 
 int StateRobotPosx;
 int StateRobotPosy;

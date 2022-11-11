@@ -48,19 +48,23 @@ invariantSpecs:
 - 'HitsWALL == 0'
 
 # safetySpecs:
-
 actionTypes:
   robotAction:
     actions:
       UP:
+        value: 104
         update: p.y = p.y + 1
       DOWN:
+        value: 103
         update: p.y = p.y - 1
       LEFT:
+        value: 102
         update: p.x = p.x - 1
       RIGHT:
+        value: 101
         update: p.x = p.x + 1
       NONE:
+        value: 100
         update: p.x = p.x
     mapping:
     - p
