@@ -64,7 +64,7 @@ void initialize(void)
 {
     StateRobotPosx = __VERIFIER_nondet_int();
     StateRobotPosy = __VERIFIER_nondet_int();
-    __VERIFIER_assume((((px == 1) && (py == 1))));
+    __VERIFIER_assume((((StateRobotPosx == 1) && (StateRobotPosy == 1))));
     StateRobotAct = __VERIFIER_nondet_int();
     __VERIFIER_assume((StateRobotAct == UP || StateRobotAct == DOWN || StateRobotAct == LEFT || StateRobotAct == RIGHT || StateRobotAct == NONE));
 }

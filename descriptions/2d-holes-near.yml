@@ -6,26 +6,26 @@ staticProperty:
   WALL:
     include: False
     ranges:
-    - x: [5, 10]
+    - x: [1, 5]
       y: [1, 6]
   GOAL:
     include: True
     values:
-      x: [10]
-      y: [6]
+      x: [5]
+      y: [1]
   HOLE:
     include: True
     values:
-      x: [7, 8, 7, 7, 7]
-      y: [1, 2, 3, 5, 6]
+      x: [3, 4, 3, 3, 3]
+      y: [6, 5, 4, 2, 1]
 
 state:
   StateRobotPos:
     type: vector
     init: random
     values:
-      x: [5]
-      y: [1]
+      x: [1]
+      y: [6]
   StateRobotAct:
     type: robotAction
     mapping:

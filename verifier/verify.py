@@ -3,6 +3,11 @@
 import os
 import subprocess
 
+def grouped2(iterable):
+    "s -> (s0, s1), (s2, s3), (s4, s5), ..."
+    a = iter(iterable)
+    return zip(a, a)
+
 def abs_path(filename):
     package_directory = os.path.dirname(os.path.abspath(__file__))
     return os.path.join(package_directory, filename)
@@ -65,4 +70,10 @@ if __name__ == '__main__':
     print(result)
     b, trace = parse_result(result)
     print(b)
-    print(trace)
+    d = {102: 'LEFT', 101: 'RIGHT', 100: 'NONE'}
+    if trace:
+        for item in grouped2(trace):
+            act, state = item
+            act['StateRobotAct'] = d[act['StateRobotAct']]
+            state['StateRobotAct'] = d[state['StateRobotAct']]
+            print(act, state)

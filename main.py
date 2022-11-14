@@ -2,10 +2,8 @@
 
 from operator import neg
 from z3 import *
-from smt.encoding import complete_sketch
-from coder import make_model_program
-from dsl import *
-from utils import cstr, grouped2, open_config_file
+from dsl.dsl import *
+from utils.utils import cstr, grouped2, open_config_file
 from verifier.verify import verifies
 import argparse
 
@@ -74,14 +72,14 @@ def gen_ground_truth():
     pos2 = Position('vector_add', 'StateRobotPos', Vector(-10))
     bexp1 = BooleanExp('check_prop', pos1, wall)
     bexp2 = BooleanExp('check_prop', pos2, wall)
-    tr_from_left = Transition([BooleanExp('not', bexp2), Action('LEFT')],
-                              [bexp2, Action('RIGHT')],
-                              [Action('NONE')])
-    tr_from_right = Transition([bexp1, Action('LEFT')],
-                               [BooleanExp('not', bexp1), Action('RIGHT')],
-                               [Action('NONE')])
-    asp = ASP([Action('LEFT'), tr_from_left], [Action(
-        'RIGHT'), tr_from_right], [Action('NONE')])
+    tr_from_left = Transition([BooleanExp('not', bexp2), RobotAction('LEFT')],
+                              [bexp2, RobotAction('RIGHT')],
+                              [RobotAction('NONE')])
+    tr_from_right = Transition([bexp1, RobotAction('LEFT')],
+                               [BooleanExp('not', bexp1), RobotAction('RIGHT')],
+                               [RobotAction('NONE')])
+    asp = ASP([RobotAction('LEFT'), tr_from_left], [RobotAction(
+        'RIGHT'), tr_from_right], [RobotAction('NONE')])
     return asp
 
 

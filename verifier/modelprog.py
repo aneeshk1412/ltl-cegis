@@ -111,7 +111,7 @@ def function_initialization(config):
             if 'values' in details:
                 conds = dict()
                 for k, rnge in details['values'].items():
-                    conds[k] = [f'(p{k} == {r})' for r in rnge]
+                    conds[k] = [f'({statevar}{k} == {r})' for r in rnge]
                 for tup in zip(*conds.values()):
                     cond.append(f'({" && ".join(tup)})')
             else:
