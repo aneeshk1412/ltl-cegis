@@ -98,7 +98,6 @@ def function_compute_atomic_propositions(config):
 def function_policy():
     func_policy = Function('policy', 'int')
     func_policy.add_code('INSERT_ASP')
-    func_policy.add_code('return NONE;')
     return func_policy
 
 def function_initialization(config):

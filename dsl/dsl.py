@@ -86,6 +86,7 @@ class NonTerminal(ABC):
             print(self.terms)
             raise NotImplementedError
 
+    @abstractmethod
     def __str__(self) -> str:
         return ''
 
@@ -193,34 +194,24 @@ class Position(NonTerminal):
 class AtomicBooleanExp(NonTerminal):
     def __verify__(self) -> bool:
         match self.terms:
-            case ['True' | 'False']:
-                return True
             case ['check_prop', Position(), StaticProperty()]:
                 return True
         return False
 
     def __str__(self) -> str:
-        match self.terms:
-            case ['True' | 'False']:
-                return str(self.terms[0])
         return f'{self.terms[0]}({str(self.terms[1])}, {str(self.terms[2])})'
 
     def __cstr__(self) -> str:
         match self.terms:
-            case ['True']:
-                return '1'
-            case ['False']:
-                return '0'
             case ['check_prop', Position(), StaticProperty()]:
                 return f'{self.terms[0]}_{self.terms[2]}({cstr(self.terms[1])})'
 
     @classmethod
     def __simple_enumerate__(cls):
-        yield from [cls('True'), cls('False')]
         yield from (cls('check_prop', pos, prop) for pos in Position.__simple_enumerate__() for prop in StaticProperty.__simple_enumerate__())
 
 
-class BooleanExp(NonTerminal):
+class CombinationBooleanExp(NonTerminal):
     operation_map = {'and': '&&', 'or': '||', 'not': '!'}
 
     def __verify__(self) -> bool:
@@ -229,7 +220,7 @@ class BooleanExp(NonTerminal):
                 return True
             case ['not', AtomicBooleanExp()]:
                 return True
-            case ['and' | 'or', BooleanExp(), BooleanExp()]:
+            case ['and' | 'or', CombinationBooleanExp(), CombinationBooleanExp()]:
                 return True
         return False
 
@@ -258,6 +249,38 @@ class BooleanExp(NonTerminal):
             # <TODO> do not combine things that result in something in the past, or that result in UNSAT
             yield cls('and', x, y)
             yield cls('or', x, y)
+
+
+class BooleanExp(NonTerminal):
+    def __verify__(self) -> bool:
+        match self.terms:
+            case ['True' | 'False' | '?']:
+                return True
+            case [CombinationBooleanExp()]:
+                return True
+        return False
+
+    def __str__(self) -> str:
+        match self.terms:
+            case ['True' | 'False' | '?']:
+                return str(self.terms[0])
+        return f'{str(self.terms[0])}'
+
+    def __cstr__(self) -> str:
+        match self.terms:
+            case ['True']:
+                return '1'
+            case ['False']:
+                return '0'
+            case ['?']:
+                return '?'
+            case [CombinationBooleanExp()]:
+                return f'{cstr(self.terms[0])}'
+
+    @classmethod
+    def __simple_enumerate__(cls):
+        yield cls('?')
+        yield from (cls(cbexp) for cbexp in CombinationBooleanExp.__simple_enumerate__())
 
 
 class TransitionASP(NonTerminal):
@@ -368,15 +391,15 @@ def print_testing():
     #     # print(cstr(tup))
     # print()
 
-    # for tup in TransitionASP.__simple_enumerate__():
-    #     print(tup)
-    #     # print(cstr(tup))
-    # print()
-
-    for tup in ASP.__simple_enumerate__():
+    for tup in TransitionASP.__simple_enumerate__():
         print(tup)
         # print(cstr(tup))
     print()
+
+    # for tup in ASP.__simple_enumerate__():
+    #     print(tup)
+    #     # print(cstr(tup))
+    # print()
 
 
 
