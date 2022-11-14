@@ -2,7 +2,45 @@
 
 from abc import ABC, abstractmethod
 from itertools import product, count, repeat
-from sympy.utilities.iterables import iproduct
+
+class GenCacher:
+    def __init__(self, generator):
+        self.g = generator
+        self.cache = []
+
+    def __getitem__(self, idx):
+        while len(self.cache) <= idx:
+            try:
+                self.cache.append(next(self.g))
+            except StopIteration:
+                break
+        try:
+            return self.cache[idx]
+        except IndexError:
+            return None
+
+def summations(sum_to, n=2):
+    if n == 1:
+        yield (sum_to,)
+    else:
+        for head in range(sum_to + 1):
+            for tail in summations(sum_to - head, n - 1):
+                yield (head,) + tail
+
+def iproduct(*gens):
+    gens = list(map(GenCacher, gens))
+    num_gens = len(gens)
+
+    for dist in count(0):
+        no_tuples_found = True
+        for idxs in summations(dist, num_gens):
+            tup = tuple(gen[idx] for gen, idx in zip(gens, idxs))
+            if any(t is None for t in tup):
+                continue
+            no_tuples_found = False
+            yield tup
+        if no_tuples_found:
+            break
 
 def cstr(obj):
     try:
@@ -24,7 +62,7 @@ class Terminal(ABC):
         if not self.__verify__():
             print(self.term)
             raise NotImplementedError
-    
+
     def __str__(self) -> str:
         return str(self.term)
 
@@ -47,10 +85,10 @@ class NonTerminal(ABC):
         if not self.__verify__():
             print(self.terms)
             raise NotImplementedError
-    
+
     def __str__(self) -> str:
         return ''
-    
+
     @abstractmethod
     def __cstr__(self) -> str:
         return ''
@@ -160,7 +198,7 @@ class AtomicBooleanExp(NonTerminal):
             case ['check_prop', Position(), StaticProperty()]:
                 return True
         return False
-    
+
     def __str__(self) -> str:
         match self.terms:
             case ['True' | 'False']:
@@ -327,18 +365,18 @@ def print_testing():
 
     # for tup in BooleanExp.__simple_enumerate__():
     #     print(tup)
-    #     print(cstr(tup))
+    #     # print(cstr(tup))
     # print()
 
-    for tup in TransitionASP.__simple_enumerate__():
-        print(tup)
-        print(cstr(tup))
-    print()
-
-    # for tup in ASP.__simple_enumerate__():
+    # for tup in TransitionASP.__simple_enumerate__():
     #     print(tup)
-    #     print(cstr(tup))
+    #     # print(cstr(tup))
     # print()
+
+    for tup in ASP.__simple_enumerate__():
+        print(tup)
+        # print(cstr(tup))
+    print()
 
 
 
