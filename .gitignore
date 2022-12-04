@@ -1,0 +1,10 @@
+*.tar.gz
+.venv
+.venv/
+.vscode
+
+__pycache__/
+lib/
+
+model.pkl
+*.html
