@@ -1,0 +1,7 @@
+*.tar.gz
+.venv
+.venv/
+.vscode
+
+__pycache__/
+lib/
