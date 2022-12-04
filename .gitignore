@@ -1,0 +1,6 @@
+*.tar.gz
+.venv
+.vscode
+
+__pycache__/
+src/verifier/tempprog.c
