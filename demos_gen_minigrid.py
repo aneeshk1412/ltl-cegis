@@ -2,6 +2,7 @@
 import gymnasium as gym
 from copy import deepcopy
 from pprint import pprint
+import random
 
 from minigrid.minigrid_env import MiniGridEnv
 from minigrid.wrappers import ImgObsWrapper, RGBImgPartialObsWrapper
@@ -10,27 +11,35 @@ from dsl_minigrid import extract_features
 ## Change which ASP to import from here
 from asp_minigrid import action_selection_policy_DoorKey_ground_truth as action_selection_policy
 
-class Verifier:
+class DemosGen:
     def __init__(
         self,
         env: MiniGridEnv,
         agent_view: bool = False,
         seed: None | int = None,
-        num_trials: int = 5,
+        num_demos: int = 5,
     ) -> None:
         self.env = env
         self.agent_view = agent_view
         self.seed = seed
+        if seed is not None:
+            random.seed(seed)
         self.demonstration = []
-        self.num_trials = num_trials
-        self.trials = 0
-        self.result = (True, None)
+        self.num_demos = num_demos
+        self.demos = 0
+        self.result = []
 
     def start(self):
         self.reset(self.seed)
-        while self.step_using_asp() and self.trials <= self.num_trials:
+        while self.step_using_asp() and self.demos <= self.num_demos:
             pass
         return self.result
+
+    def add_demo(self):
+        i = random.randint(0, len(self.demonstration)-1)
+        j = random.randint(0, len(self.demonstration)-1)
+        i, j = min(i, j), max(i, j)
+        self.result.extend(self.demonstration[i:j+1])
 
     def step(self, action: MiniGridEnv.Actions):
         _, reward, terminated, truncated, _ = self.env.step(action)
@@ -38,22 +47,20 @@ class Verifier:
 
         if terminated:
             if reward < 0:
-                print(f"violation of property!")
-                self.result = (False, deepcopy(self.demonstration))
+                print(f"violation of property! wrong ground truth")
                 return False
+            self.add_demo()
             self.reset(self.seed)
         elif truncated:
-            print(f"timeout!")
-            self.result = (False, deepcopy(self.demonstration))
-            return False ## Remove this if we dont want timeout based Counter Examples
-            # self.reset(self.seed)
+            print(f"timeout! wrong ground truth")
+            return False
 
         return True
 
     def reset(self, seed=None):
         self.env.reset(seed=seed)
         self.demonstration = []
-        self.trials += 1
+        self.demos += 1
 
         if hasattr(self.env, "mission"):
             print(f"Mission: {self.env.mission}")
@@ -62,7 +69,7 @@ class Verifier:
         print(f"{self.env.steps_remaining=}")
         key = action_selection_policy(self.env)
         print(f"pressed {key}")
-        self.demonstration.append((extract_features(self.env), key, self.env))
+        self.demonstration.append((extract_features(self.env), key))
 
         key_to_action = {
             "left": MiniGridEnv.Actions.left,
@@ -77,8 +84,8 @@ class Verifier:
         action = key_to_action[key]
         return self.step(action)
 
-def verify_action_selection_policy(env_name, seed, tile_size=32, agent_view=False, timeout=100):
-    """ Verifies the currently imported action selection policy from asp_minigrid """
+def generate_demonstrations(env_name, seed, tile_size=32, agent_view=False, num_demos=5, timeout=100):
+    """ Generates positive demonstrations from the currently imported ground truth ASP from asp_minigrid """
 
     env: MiniGridEnv = gym.make(env_name, tile_size=tile_size, max_steps=timeout)
 
@@ -87,14 +94,11 @@ def verify_action_selection_policy(env_name, seed, tile_size=32, agent_view=Fals
         env = RGBImgPartialObsWrapper(env, tile_size)
         env = ImgObsWrapper(env)
 
-    verifier = Verifier(env, agent_view=agent_view, seed=seed)
-    result = verifier.start()
-    print(result[0])
-    if result[1] is not None:
-        for line in result[1]:
-            print(str(line[2]))
-            pprint(line[0])
-            print(f"action={line[1]}")
+    demo_gem = DemosGen(env, agent_view=agent_view, seed=seed, num_demos=num_demos)
+    result = demo_gem.start()
+    for line in result:
+        pprint(line[0])
+        print(f"action={line[1]}")
     return result
 
 if __name__ == "__main__":
@@ -121,4 +125,4 @@ if __name__ == "__main__":
     )
 
     args = parser.parse_args()
-    verify_action_selection_policy(args.env, args.seed, tile_size=args.tile_size, agent_view=args.agent_view, timeout=100)
+    generate_demonstrations(args.env, args.seed, tile_size=args.tile_size, agent_view=args.agent_view, num_demos=5, timeout=100)
