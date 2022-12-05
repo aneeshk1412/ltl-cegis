@@ -22,6 +22,7 @@ class Verifier:
         self.agent_view = agent_view
         self.seed = seed
         self.demonstration = []
+        self.demo_envs = []
         self.num_trials = num_trials
         self.trials = 0
         self.result = (True, None)
@@ -39,12 +40,12 @@ class Verifier:
         if terminated:
             if reward < 0:
                 print(f"violation of property!")
-                self.result = (False, deepcopy(self.demonstration))
+                self.result = (False, self.demonstration)
                 return False
             self.reset(self.seed)
         elif truncated:
             print(f"timeout!")
-            self.result = (False, deepcopy(self.demonstration))
+            self.result = (False, self.demonstration)
             return False ## Remove this if we dont want timeout based Counter Examples
             # self.reset(self.seed)
 
@@ -53,6 +54,7 @@ class Verifier:
     def reset(self, seed=None):
         self.env.reset(seed=seed)
         self.demonstration = []
+        self.demo_envs = []
         self.trials += 1
 
         if hasattr(self.env, "mission"):
@@ -62,7 +64,8 @@ class Verifier:
         print(f"{self.env.steps_remaining=}")
         key = action_selection_policy(self.env)
         print(f"pressed {key}")
-        self.demonstration.append((extract_features(self.env), key, self.env))
+        self.demonstration.append((extract_features(self.env), key))
+        self.demo_envs.append(deepcopy(self.env))
 
         key_to_action = {
             "left": MiniGridEnv.Actions.left,
@@ -92,9 +95,10 @@ def verify_action_selection_policy(env_name, seed, tile_size=32, agent_view=Fals
     print(result[0])
     if result[1] is not None:
         for line in result[1]:
-            print(str(line[2]))
             pprint(line[0])
             print(f"action={line[1]}")
+        for env in verifier.demo_envs:
+            print(env)
     return result
 
 if __name__ == "__main__":
