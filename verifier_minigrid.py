@@ -1,53 +1,63 @@
 #!/usr/bin/env python3
 import gymnasium as gym
 from copy import deepcopy
-from pprint import pprint
 
 from minigrid.minigrid_env import MiniGridEnv
 from minigrid.wrappers import ImgObsWrapper, RGBImgPartialObsWrapper
 from dsl_minigrid import extract_features
 
 ## Change which ASP to import from here
-from asp_minigrid import action_selection_policy_DoorKey_ground_truth as action_selection_policy
+from asp_minigrid import action_selection_policy_DoorKey_ground_truth, action_selection_policy_DoorKey_wrong
 
 class Verifier:
     def __init__(
         self,
         env: MiniGridEnv,
-        agent_view: bool = False,
+        action_selection_policy,
+        start_env_given=False,
         seed: None | int = None,
-        num_trials: int = 5,
+        agent_view: bool = False,
+        num_trials: int = 20,
     ) -> None:
         self.env = env
+        self.action_selection_policy = action_selection_policy
         self.agent_view = agent_view
         self.seed = seed
-        self.demonstration = []
-        self.demo_envs = []
+
         self.num_trials = num_trials
         self.trials = 0
+
+        self.demonstration = []
+        self.demo_envs = []
         self.result = (True, None)
 
+        self.start_env_given = start_env_given
+        if self.start_env_given:
+            self.num_trials = 1
+            self.env.seed = seed
+
     def start(self):
-        self.reset(self.seed)
+        if not self.start_env_given:
+            self.reset(self.seed)
         while self.step_using_asp() and self.trials <= self.num_trials:
             pass
         return self.result
 
     def step(self, action: MiniGridEnv.Actions):
         _, reward, terminated, truncated, _ = self.env.step(action)
-        print(f"step={self.env.step_count}, reward={reward:.2f}")
+        # print(f"step={self.env.step_count}, reward={reward:.2f}")
 
         if terminated:
             if reward < 0:
-                print(f"violation of property!")
+                # print(f"violation of property!")
                 self.result = (False, self.demonstration)
                 return False
             self.reset(self.seed)
         elif truncated:
-            print(f"timeout!")
+            # print(f"timeout!")
             self.result = (False, self.demonstration)
             return False ## Remove this if we dont want timeout based Counter Examples
-            # self.reset(self.seed)
+            # self.reset(self.seed) ## Add this if we dont want timeout based Counter Examples
 
         return True
 
@@ -57,13 +67,13 @@ class Verifier:
         self.demo_envs = []
         self.trials += 1
 
-        if hasattr(self.env, "mission"):
-            print(f"Mission: {self.env.mission}")
+        # if hasattr(self.env, "mission"):
+        #     print(f"Mission: {self.env.mission}")
 
     def step_using_asp(self):
-        print(f"{self.env.steps_remaining=}")
-        key = action_selection_policy(self.env)
-        print(f"pressed {key}")
+        # print(f"{self.env.steps_remaining=}")
+        key = self.action_selection_policy(self.env)
+        # print(f"pressed {key}")
         self.demonstration.append((extract_features(self.env), key))
         self.demo_envs.append(deepcopy(self.env))
 
@@ -80,33 +90,36 @@ class Verifier:
         action = key_to_action[key]
         return self.step(action)
 
-def verify_action_selection_policy(env_name, seed, tile_size=32, agent_view=False, timeout=100):
-    """ Verifies the currently imported action selection policy from asp_minigrid """
+def verify_action_selection_policy(env_name, action_selection_policy, seed=None, tile_size=32, agent_view=False, timeout=100, num_trials=20):
+    """ Verifies the given action selection policy on num_trials random environments """
 
     env: MiniGridEnv = gym.make(env_name, tile_size=tile_size, max_steps=timeout)
-
     if agent_view:
-        print("Using agent view")
         env = RGBImgPartialObsWrapper(env, tile_size)
         env = ImgObsWrapper(env)
 
-    verifier = Verifier(env, agent_view=agent_view, seed=seed)
+    verifier = Verifier(env, action_selection_policy, seed=seed, agent_view=agent_view, num_trials=num_trials)
     result = verifier.start()
-    print(result[0])
-    if result[1] is not None:
-        for line in result[1]:
-            pprint(line[0])
-            print(f"action={line[1]}")
-        for env in verifier.demo_envs:
-            print(env)
-    return result
+    return result, verifier.demo_envs
+
+def verify_action_selection_policy_on_env(env: MiniGridEnv, action_selection_policy, seed=None, tile_size=32, agent_view=False, timeout=100):
+    """ Verifies the given action selection policy on given starting env """
+    env.max_steps = timeout
+    if agent_view:
+        env = RGBImgPartialObsWrapper(env, tile_size)
+        env = ImgObsWrapper(env)
+
+    verifier = Verifier(env, action_selection_policy, seed=seed, agent_view=agent_view, start_env_given=True)
+    result = verifier.start()
+    return result, verifier.demo_envs
 
 if __name__ == "__main__":
     import argparse
+    from pprint import pprint
 
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--env", help="gym environment to load", default="MiniGrid-DoorKey-16x16-v0"
+        "--env-name", help="gym environment to load", default="MiniGrid-DoorKey-16x16-v0"
     )
     parser.add_argument(
         "--seed",
@@ -125,4 +138,33 @@ if __name__ == "__main__":
     )
 
     args = parser.parse_args()
-    verify_action_selection_policy(args.env, args.seed, tile_size=args.tile_size, agent_view=args.agent_view, timeout=100)
+    result, demo_envs = verify_action_selection_policy(args.env_name, action_selection_policy_DoorKey_ground_truth, seed=args.seed, timeout=100, num_trials=20)
+    print(result[0])
+    if result[1] is not None:
+        for line in result[1]:
+            pprint(line[0])
+            print(f"action={line[1]}")
+        for env in demo_envs:
+            print(env)
+
+    print('\n\n')
+
+    result, demo_envs = verify_action_selection_policy(args.env_name, action_selection_policy_DoorKey_wrong, seed=args.seed, timeout=100, num_trials=20)
+    print(result[0])
+    if result[1] is not None:
+        for line in result[1]:
+            pprint(line[0])
+            print(f"action={line[1]}")
+        for env in demo_envs:
+            print(env)
+
+    print('\n\n')
+
+    result, demo_envs = verify_action_selection_policy_on_env(demo_envs[-1], action_selection_policy_DoorKey_wrong, seed=args.seed, timeout=100)
+    print(result[0])
+    if result[1] is not None:
+        for line in result[1]:
+            pprint(line[0])
+            print(f"action={line[1]}")
+        for env in demo_envs:
+            print(env)

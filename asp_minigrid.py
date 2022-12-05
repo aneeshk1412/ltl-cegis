@@ -22,6 +22,21 @@ def action_selection_policy_DoorKey_ground_truth(env: MiniGridEnv):
 		return "left"
 	return "up"
 
+def action_selection_policy_DoorKey_wrong(env: MiniGridEnv):
+	if is_present(env, "key") and check(env, env.front_pos, "key"):
+		return "pageup"
+	if is_present(env, "key") and is_agent_facing(env, get_nearest(env, "key")):
+		return "up"
+	if is_present(env, "key"):
+		return "left"
+	if is_present(env, "door") and check(env, env.front_pos, "door"):
+		return " "
+	if is_present(env, "door") and is_agent_facing(env, get_nearest(env, "door")) and not check(env, env.front_pos, "wall"):
+		return "up"
+	if is_present(env, "door"):
+		return "left"
+	return "up"
+
 number_to_action_key = {
     0: 'left',
     2: 'up',
