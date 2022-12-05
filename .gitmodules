@@ -1,3 +1,4 @@
 [submodule "Minigrid"]
 	path = Minigrid
 	url = git@github.com:aneeshk1412/Minigrid.git
+	branch = master
