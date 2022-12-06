@@ -4,7 +4,7 @@ from copy import deepcopy
 
 from minigrid.minigrid_env import MiniGridEnv
 from minigrid.wrappers import ImgObsWrapper, RGBImgPartialObsWrapper
-from dsl_minigrid import extract_features
+from dsl_minigrid import extract_features_DoorKey
 
 from asp_minigrid import action_selection_policy_DoorKey_ground_truth, action_selection_policy_DoorKey_wrong
 
@@ -73,7 +73,7 @@ class Verifier:
         # print(f"{self.env.steps_remaining=}")
         key = self.action_selection_policy(self.env)
         # print(f"pressed {key}")
-        self.demonstration.append((extract_features(self.env), key))
+        self.demonstration.append((extract_features_DoorKey(self.env), key))
         self.demo_envs.append(deepcopy(self.env))
 
         key_to_action = {
@@ -98,8 +98,8 @@ def verify_action_selection_policy(env_name, action_selection_policy, seed=None,
         env = ImgObsWrapper(env)
 
     verifier = Verifier(env, action_selection_policy, seed=seed, agent_view=agent_view, num_trials=num_trials)
-    result = verifier.start()
-    return result[0], result[1], verifier.demo_envs
+    sat, trace = verifier.start()
+    return sat, trace, verifier.demo_envs
 
 def verify_action_selection_policy_on_env(env: MiniGridEnv, action_selection_policy, seed=None, tile_size=32, agent_view=False, timeout=100):
     """ Verifies the given action selection policy on given starting env """
@@ -109,8 +109,8 @@ def verify_action_selection_policy_on_env(env: MiniGridEnv, action_selection_pol
         env = ImgObsWrapper(env)
 
     verifier = Verifier(env, action_selection_policy, seed=seed, agent_view=agent_view, start_env_given=True)
-    result = verifier.start()
-    return result, verifier.demo_envs
+    sat, trace = verifier.start()
+    return sat, trace, verifier.demo_envs
 
 if __name__ == "__main__":
     import argparse
@@ -159,7 +159,7 @@ if __name__ == "__main__":
 
     print('\n\n')
 
-    sat, trace, demo_envs = verify_action_selection_policy_on_env(demo_envs[-1], action_selection_policy_DoorKey_wrong, seed=args.seed, timeout=100)
+    sat, trace, demo_envs = verify_action_selection_policy_on_env(demo_envs[-4], action_selection_policy_DoorKey_wrong, seed=args.seed, timeout=100)
     print(sat)
     if not sat:
         for line in trace:

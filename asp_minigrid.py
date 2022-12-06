@@ -38,7 +38,6 @@ def action_selection_policy_DoorKey_wrong(env: MiniGridEnv):
 		return "left"
 	return "up"
 
-def action_selection_policy_decision_tree(env: MiniGridEnv, model):
+def action_selection_policy_decision_tree(env: MiniGridEnv, model, extract_features):
 	state = pd.DataFrame([extract_features(env)])
-	act_idx = model.predict(state)[0]
-	return IDX_TO_ACT_KEY[act_idx]
+	return model.predict(state)[0]

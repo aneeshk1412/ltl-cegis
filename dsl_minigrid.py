@@ -61,17 +61,32 @@ def is_agent_facing(env: MiniGridEnv, pos: Tuple[int, ...]):
 #   Features for Decision Trees
 ##
 
-def extract_features(env: MiniGridEnv) -> List[bool]:
-    features = {
-        'is_present(env, "goal")': is_present(env, "goal"),
-        'is_present(env, "door")': is_present(env, "door"),
-        'is_present(env, "key")': is_present(env, "key"),
-        'check(env, env.front_pos, "empty")': check(env, env.front_pos, "empty"),
-        'check(env, env.front_pos, "goal")': check(env, env.front_pos, "goal"),
-        'check(env, env.front_pos, "door")': check(env, env.front_pos, "door"),
-        'check(env, env.front_pos, "key")': check(env, env.front_pos, "key"),
-        'is_agent_facing(env, get_nearest(env, "goal"))': is_agent_facing(env, get_nearest(env, "goal")),
-        'is_agent_facing(env, get_nearest(env, "door"))': is_agent_facing(env, get_nearest(env, "door")),
-        'is_agent_facing(env, get_nearest(env, "key"))': is_agent_facing(env, get_nearest(env, "key")),
-    }
+def extract_features_DoorKey(env: MiniGridEnv) -> Tuple[bool, ...]:
+    features = (
+        is_present(env, "goal"),
+        is_present(env, "door"),
+        is_present(env, "key"),
+        check(env, env.front_pos, "empty"),
+        check(env, env.front_pos, "goal"),
+        check(env, env.front_pos, "door"),
+        check(env, env.front_pos, "key"),
+        is_agent_facing(env, get_nearest(env, "goal")),
+        is_agent_facing(env, get_nearest(env, "door")),
+        is_agent_facing(env, get_nearest(env, "key")),
+    )
     return features
+
+def feature_headers_DoorKey() -> List[str]:
+    headers = [
+        'is_present(env, "goal")',
+        'is_present(env, "door")',
+        'is_present(env, "key")',
+        'check(env, env.front_pos, "empty")',
+        'check(env, env.front_pos, "goal")',
+        'check(env, env.front_pos, "door")',
+        'check(env, env.front_pos, "key")',
+        'is_agent_facing(env, get_nearest(env, "goal"))',
+        'is_agent_facing(env, get_nearest(env, "door"))',
+        'is_agent_facing(env, get_nearest(env, "key"))',
+    ]
+    return headers

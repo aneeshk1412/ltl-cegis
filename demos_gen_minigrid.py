@@ -5,7 +5,7 @@ import random
 
 from minigrid.minigrid_env import MiniGridEnv
 from minigrid.wrappers import ImgObsWrapper, RGBImgPartialObsWrapper
-from dsl_minigrid import extract_features
+from dsl_minigrid import extract_features_DoorKey
 
 from asp_minigrid import action_selection_policy_DoorKey_ground_truth
 
@@ -69,7 +69,7 @@ class DemosGen:
         # print(f"{self.env.steps_remaining=}")
         key = self.action_selection_policy(self.env)
         # print(f"pressed {key}")
-        self.demonstration.append((extract_features(self.env), key))
+        self.demonstration.append((extract_features_DoorKey(self.env), key))
 
         key_to_action = {
             "left": MiniGridEnv.Actions.left,
