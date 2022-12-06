@@ -99,7 +99,7 @@ def verify_action_selection_policy(env_name, action_selection_policy, seed=None,
 
     verifier = Verifier(env, action_selection_policy, seed=seed, agent_view=agent_view, num_trials=num_trials)
     result = verifier.start()
-    return result, verifier.demo_envs
+    return result[0], result[1], verifier.demo_envs
 
 def verify_action_selection_policy_on_env(env: MiniGridEnv, action_selection_policy, seed=None, tile_size=32, agent_view=False, timeout=100):
     """ Verifies the given action selection policy on given starting env """
@@ -137,10 +137,10 @@ if __name__ == "__main__":
     )
 
     args = parser.parse_args()
-    result, demo_envs = verify_action_selection_policy(args.env_name, action_selection_policy_DoorKey_ground_truth, seed=args.seed, timeout=100, num_trials=20)
-    print(result[0])
-    if result[1] is not None:
-        for line in result[1]:
+    sat, trace, demo_envs = verify_action_selection_policy(args.env_name, action_selection_policy_DoorKey_ground_truth, seed=args.seed, timeout=100, num_trials=20)
+    print(sat)
+    if not sat:
+        for line in trace:
             pprint(line[0])
             print(f"action={line[1]}")
         for env in demo_envs:
@@ -148,10 +148,10 @@ if __name__ == "__main__":
 
     print('\n\n')
 
-    result, demo_envs = verify_action_selection_policy(args.env_name, action_selection_policy_DoorKey_wrong, seed=args.seed, timeout=100, num_trials=20)
-    print(result[0])
-    if result[1] is not None:
-        for line in result[1]:
+    sat, trace, demo_envs = verify_action_selection_policy(args.env_name, action_selection_policy_DoorKey_wrong, seed=args.seed, timeout=100, num_trials=20)
+    print(sat)
+    if not sat:
+        for line in trace:
             pprint(line[0])
             print(f"action={line[1]}")
         for env in demo_envs:
@@ -159,10 +159,10 @@ if __name__ == "__main__":
 
     print('\n\n')
 
-    result, demo_envs = verify_action_selection_policy_on_env(demo_envs[-1], action_selection_policy_DoorKey_wrong, seed=args.seed, timeout=100)
-    print(result[0])
-    if result[1] is not None:
-        for line in result[1]:
+    sat, trace, demo_envs = verify_action_selection_policy_on_env(demo_envs[-1], action_selection_policy_DoorKey_wrong, seed=args.seed, timeout=100)
+    print(sat)
+    if not sat:
+        for line in trace:
             pprint(line[0])
             print(f"action={line[1]}")
         for env in demo_envs:

@@ -1,5 +1,6 @@
-import pickle
+import pandas as pd
 from minigrid.minigrid_env import MiniGridEnv
+from minigrid.core.constants import IDX_TO_ACT_KEY
 
 from dsl_minigrid import *
 
@@ -37,16 +38,7 @@ def action_selection_policy_DoorKey_wrong(env: MiniGridEnv):
 		return "left"
 	return "up"
 
-number_to_action_key = {
-    0: 'left',
-    2: 'up',
-    3: 'pageup',
-    5: ' '
-}
-
-def action_selection_policy_decision_tree(env: MiniGridEnv):
-	with open('DT.model', 'rb') as f:
-		model = pickle.load(f)
-		state = extract_features(env)
-		res = model.predict([state])
-	return number_to_action_key[res]
+def action_selection_policy_decision_tree(env: MiniGridEnv, model):
+	state = pd.DataFrame([extract_features(env)])
+	act_idx = model.predict(state)[0]
+	return IDX_TO_ACT_KEY[act_idx]
