@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 import gymnasium as gym
-from copy import deepcopy
 from pprint import pprint
 import random
 
@@ -8,18 +7,19 @@ from minigrid.minigrid_env import MiniGridEnv
 from minigrid.wrappers import ImgObsWrapper, RGBImgPartialObsWrapper
 from dsl_minigrid import extract_features
 
-## Change which ASP to import from here
-from asp_minigrid import action_selection_policy_DoorKey_ground_truth as action_selection_policy
+from asp_minigrid import action_selection_policy_DoorKey_ground_truth
 
 class DemosGen:
     def __init__(
         self,
         env: MiniGridEnv,
+        action_selection_policy,
         agent_view: bool = False,
         seed: None | int = None,
         num_demos: int = 5,
     ) -> None:
         self.env = env
+        self.action_selection_policy = action_selection_policy
         self.agent_view = agent_view
         self.seed = seed
         if seed is not None:
@@ -36,14 +36,14 @@ class DemosGen:
         return self.result
 
     def add_demo(self):
-        i = random.randint(0, len(self.demonstration)-1)
-        j = random.randint(0, len(self.demonstration)-1)
+        i = 0 # random.randint(0, len(self.demonstration)-1)
+        j = len(self.demonstration)-1 # random.randint(0, len(self.demonstration)-1)
         i, j = min(i, j), max(i, j)
         self.result.extend(self.demonstration[i:j+1])
 
     def step(self, action: MiniGridEnv.Actions):
         _, reward, terminated, truncated, _ = self.env.step(action)
-        print(f"step={self.env.step_count}, reward={reward:.2f}")
+        # print(f"step={self.env.step_count}, reward={reward:.2f}")
 
         if terminated:
             if reward < 0:
@@ -62,13 +62,13 @@ class DemosGen:
         self.demonstration = []
         self.demos += 1
 
-        if hasattr(self.env, "mission"):
-            print(f"Mission: {self.env.mission}")
+        # if hasattr(self.env, "mission"):
+        #     print(f"Mission: {self.env.mission}")
 
     def step_using_asp(self):
-        print(f"{self.env.steps_remaining=}")
-        key = action_selection_policy(self.env)
-        print(f"pressed {key}")
+        # print(f"{self.env.steps_remaining=}")
+        key = self.action_selection_policy(self.env)
+        # print(f"pressed {key}")
         self.demonstration.append((extract_features(self.env), key))
 
         key_to_action = {
@@ -84,7 +84,7 @@ class DemosGen:
         action = key_to_action[key]
         return self.step(action)
 
-def generate_demonstrations(env_name, seed, tile_size=32, agent_view=False, num_demos=5, timeout=100):
+def generate_demonstrations(env_name, action_selection_policy, seed=None, tile_size=32, agent_view=False, num_demos=5, timeout=100):
     """ Generates positive demonstrations from the currently imported ground truth ASP from asp_minigrid """
 
     env: MiniGridEnv = gym.make(env_name, tile_size=tile_size, max_steps=timeout)
@@ -94,11 +94,8 @@ def generate_demonstrations(env_name, seed, tile_size=32, agent_view=False, num_
         env = RGBImgPartialObsWrapper(env, tile_size)
         env = ImgObsWrapper(env)
 
-    demo_gem = DemosGen(env, agent_view=agent_view, seed=seed, num_demos=num_demos)
+    demo_gem = DemosGen(env, action_selection_policy, agent_view=agent_view, seed=seed, num_demos=num_demos)
     result = demo_gem.start()
-    for line in result:
-        pprint(line[0])
-        print(f"action={line[1]}")
     return result
 
 if __name__ == "__main__":
@@ -125,4 +122,7 @@ if __name__ == "__main__":
     )
 
     args = parser.parse_args()
-    generate_demonstrations(args.env, args.seed, tile_size=args.tile_size, agent_view=args.agent_view, num_demos=5, timeout=100)
+    result = generate_demonstrations(args.env, action_selection_policy_DoorKey_ground_truth, seed=args.seed, timeout=100, num_demos=5)
+    for line in result:
+        pprint(line[0])
+        print(f"action={line[1]}")

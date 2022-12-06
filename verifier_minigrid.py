@@ -6,7 +6,6 @@ from minigrid.minigrid_env import MiniGridEnv
 from minigrid.wrappers import ImgObsWrapper, RGBImgPartialObsWrapper
 from dsl_minigrid import extract_features
 
-## Change which ASP to import from here
 from asp_minigrid import action_selection_policy_DoorKey_ground_truth, action_selection_policy_DoorKey_wrong
 
 class Verifier:
