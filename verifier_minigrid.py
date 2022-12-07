@@ -50,11 +50,13 @@ class Verifier:
             if reward < 0:
                 # print(f"violation of property!")
                 self.result = (False, self.demonstration)
+                print(f"CEx at: {self.trials = } out of {self.num_trials = }")
                 return False
             self.reset(self.seed)
         elif truncated:
             # print(f"timeout!")
             self.result = (False, self.demonstration)
+            print(f"CEx at: {self.trials = } out of {self.num_trials = }")
             return False ## Remove this if we dont want timeout based Counter Examples
             # self.reset(self.seed) ## Add this if we dont want timeout based Counter Examples
 
