@@ -1,6 +1,5 @@
 import pandas as pd
 from minigrid.minigrid_env import MiniGridEnv
-from minigrid.core.constants import IDX_TO_ACT_KEY
 
 from dsl_minigrid import *
 

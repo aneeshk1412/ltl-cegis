@@ -55,7 +55,7 @@ def random_sampling_algorithm(dataset_dict, trace):
     for x, y in reversed(trace):
         if x in dataset_dict:
             continue
-        z = random.sample(list(set(ACT_KEY_TO_IDX.keys()) - set([y])), 1)
+        z = random.sample(list(set(ACT_KEY_TO_IDX.keys()) - set([y])), 1) # Make a more informed decision
         return x, z[0]
     return None, None
 
@@ -96,7 +96,7 @@ verifier_seed = None
 gen_seed = 300
 dtree_seed = None
 
-demos = generate_demonstrations("MiniGrid-DoorKey-16x16-v0", action_selection_policy_DoorKey_ground_truth, seed=gen_seed, num_demos=2, timeout=100)
+demos = generate_demonstrations("MiniGrid-DoorKey-16x16-v0", action_selection_policy_DoorKey_ground_truth, seed=gen_seed, num_demos=20, timeout=100)
 dataset_dict = dict(demos)
 counter_dict = dict()
 
