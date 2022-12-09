@@ -14,7 +14,7 @@ class Verifier:
         env: MiniGridEnv,
         action_selection_policy,
         start_env_given=False,
-        seed: None | int = None,
+        seed= None,
         agent_view: bool = False,
         num_trials: int = 20,
     ) -> None:

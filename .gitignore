@@ -4,3 +4,5 @@
 
 __pycache__/
 src/verifier/tempprog.c
+
+DT.model

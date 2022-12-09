@@ -15,7 +15,7 @@ class DemosGen:
         env: MiniGridEnv,
         action_selection_policy,
         agent_view: bool = False,
-        seed: None | int = None,
+        seed=None,
         num_demos: int = 5,
     ) -> None:
         self.env = env
