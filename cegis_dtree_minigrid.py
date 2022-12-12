@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+
 import pickle
 import gymnasium as gym
 import pandas as pd
@@ -126,11 +127,10 @@ if __name__ == "__main__":
     else:
         plot_tree = True
         verifier_seed = None
-
         dtree_seed = None
 
         demos = generate_demonstrations(
-            env_name, action_selection_policy_DoorKey_ground_truth, seed=gen_seed, num_demos=1, timeout=100)
+            env_name, action_selection_policy_DoorKey_ground_truth, seed=gen_seed, num_demos=10, timeout=100)
         dataset_dict = dict(demos)
         counter_dict = dict()
 
@@ -144,7 +144,7 @@ if __name__ == "__main__":
             def action_selection_policy(env): return action_selection_policy_decision_tree(
                 env, aspmodel, extract_features_DoorKey)
             sat, trace, demo_envs = verify_action_selection_policy(
-                env_name, action_selection_policy, seed=verifier_seed, num_trials=15, timeout=100)
+                env_name, action_selection_policy, seed=verifier_seed, num_trials=100, timeout=100)
 
             print(f"{sat = }")
             if not sat:
