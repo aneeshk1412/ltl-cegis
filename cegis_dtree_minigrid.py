@@ -14,7 +14,7 @@ from demos_gen_minigrid import generate_demonstrations
 
 
 def get_stem_and_loop(trace):
-    hashes = [str(env) for env, _ in trace]
+    hashes = [str(env) for env, _, _ in trace]
     for i, x in enumerate(hashes):
         try:
             idx = hashes[i + 1 :].index(x) + i + 1
@@ -82,15 +82,15 @@ def random_sampling_algorithm(positive_dict, trace):
     return None, None
 
 
-def random_loop_correction(positive_dict, trace, demo_envs):
-    stem, loop = get_stem_and_loop(trace, demo_envs)
+def random_loop_correction(positive_dict, trace):
+    stem, loop = get_stem_and_loop(trace)
     if loop is None:
         return random_sampling_algorithm(positive_dict, stem)
-    for x, y in loop:
-        if x in positive_dict:
+    for _, obs, act in loop:
+        if obs in positive_dict:
             continue
-        z = random.sample(list(set(ACT_KEY_TO_IDX.keys()) - set([y])), 1)
-        return x, z[0]
+        new_act = random.sample([a for a in ACT_KEY_TO_IDX.keys() if a != act], 1)
+        return obs, new_act[0]
     return None, None
 
 
@@ -215,9 +215,9 @@ if __name__ == "__main__":
 
         print(f"{sat = }")
         if not sat:
-            x, z = random_sampling_algorithm(positive_dict, trace)
-            negative_dict[x] = z
-            print(f"Added Demonstration: {x} -> {z}")
+            obs, act = random_sampling_algorithm(positive_dict, trace)
+            negative_dict[obs] = act
+            print(f"Added Demonstration: {obs} -> {act}")
         print()
         epoch += 1
 

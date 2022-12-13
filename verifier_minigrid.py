@@ -1,11 +1,21 @@
 #!/usr/bin/env python3
 
+import pickle
 import gymnasium as gym
 from copy import deepcopy
 
 from minigrid.utils.window import Window
 from minigrid.minigrid_env import MiniGridEnv
 from minigrid.wrappers import ImgObsWrapper, RGBImgPartialObsWrapper
+
+
+def load_all_pickle(filename):
+    with open(filename, "rb") as f:
+        while True:
+            try:
+                yield pickle.load(f)
+            except EOFError:
+                break
 
 
 class Verifier:
@@ -17,6 +27,7 @@ class Verifier:
         seed=None,
         fix_start_env=False,
         num_trials: int = 20,
+        trials: int = 0,
         show_window: bool = False,
         agent_view: bool = False,
     ) -> None:
@@ -28,12 +39,12 @@ class Verifier:
 
         self.demonstration = []
         self.num_trials = num_trials
-        self.trials = 0
+        self.trials = trials
         self.result = (True, None)
 
         self.fix_start_env = fix_start_env
         if self.fix_start_env:
-            self.num_trials = 1
+            self.done = False
             self.env.seed = seed
 
         self.show_window = show_window
@@ -47,6 +58,8 @@ class Verifier:
         self.redraw()
         while self.step_using_asp() and self.trials <= self.num_trials:
             self.redraw()
+            if self.fix_start_env and self.done:
+                break
         return self.result
 
     def redraw(self):
@@ -61,15 +74,18 @@ class Verifier:
             print(f"timeout!")
             print(f"CEx at: {self.trials = } out of {self.num_trials = }")
             self.result = (False, self.demonstration)
+            self.done = True
             return False  ## Remove this if we dont want timeout based Counter Examples
             # self.reset(self.seed) ## Add this if we dont want timeout based Counter Examples
         if terminated and reward < 0:
             print(f"violation of property!")
             self.result = (False, self.demonstration)
+            self.done = True
             print(f"CEx at: {self.trials = } out of {self.num_trials = }")
             return False
         if terminated:
             self.reset(self.seed)
+            self.done = True
         return True
 
     def reset(self, seed=None):
@@ -112,12 +128,34 @@ def verify_action_selection_policy(
     if agent_view:
         env = RGBImgPartialObsWrapper(env, tile_size)
         env = ImgObsWrapper(env)
+
+    i = 0
+    for saved_env in load_all_pickle(env_name + '.pkl'):
+        saved_env.max_steps = timeout
+        saved_env.step_count = 0
+        verifier = Verifier(
+            saved_env,
+            action_selection_policy,
+            observation_function,
+            seed=seed,
+            num_trials=num_trials,
+            trials=i,
+            fix_start_env=True,
+            show_window=show_window,
+            agent_view=agent_view,
+        )
+        sat, trace = verifier.start()
+        if not sat:
+            return sat, trace
+        i += 1
+
     verifier = Verifier(
         env,
         action_selection_policy,
         observation_function,
         seed=seed,
         num_trials=num_trials,
+        trials=i,
         show_window=show_window,
         agent_view=agent_view,
     )
@@ -145,6 +183,7 @@ def verify_action_selection_policy_on_env(
         action_selection_policy,
         observation_function,
         seed=seed,
+        num_trials=1,
         fix_start_env=True,
         show_window=show_window,
         agent_view=agent_view,
@@ -177,7 +216,7 @@ if __name__ == "__main__":
         "--num-trials",
         type=int,
         help="number of trials to verify on",
-        default=20,
+        default=5,
     )
     parser.add_argument(
         "--timeout",
@@ -240,8 +279,8 @@ if __name__ == "__main__":
         for env, obs, act in trace:
             print(obs)
             print(f"action={act}")
-        for env, _, _ in trace:
-            print(env)
+        # for env, _, _ in trace:
+        #     print(env)
 
     print("\n\n")
 

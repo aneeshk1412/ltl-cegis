@@ -130,6 +130,12 @@ if __name__ == "__main__":
         default=None,
     )
     parser.add_argument(
+        "--timeout",
+        type=int,
+        help="timeout to complete the task",
+        default=100,
+    )
+    parser.add_argument(
         "--tile-size", type=int, help="size at which to render tiles", default=32
     )
     parser.add_argument(
@@ -141,7 +147,7 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    env: MiniGridEnv = gym.make(args.env_name, tile_size=args.tile_size)
+    env: MiniGridEnv = gym.make(args.env_name, tile_size=args.tile_size, max_steps=args.timeout)
 
     if args.agent_view:
         print("Using agent view")
