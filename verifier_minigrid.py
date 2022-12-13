@@ -7,6 +7,7 @@ from minigrid.utils.window import Window
 from minigrid.minigrid_env import MiniGridEnv
 from minigrid.wrappers import ImgObsWrapper, RGBImgPartialObsWrapper
 
+
 class Verifier:
     def __init__(
         self,
@@ -150,7 +151,10 @@ if __name__ == "__main__":
     import argparse
     from pprint import pprint
     from dsl_minigrid import feature_register
-    from asp_minigrid import ground_truth_asp_register, action_selection_policy_DoorKey_wrong
+    from asp_minigrid import (
+        ground_truth_asp_register,
+        action_selection_policy_DoorKey_wrong,
+    )
 
     parser = argparse.ArgumentParser()
     parser.add_argument(
