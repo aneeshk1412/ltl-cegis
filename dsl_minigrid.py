@@ -6,14 +6,18 @@ from minigrid.core.constants import DIR_TO_VEC
 from typing import Tuple, List
 from collections import deque
 
+
 def sign(v):
     return v // abs(v) if v != 0 else 0
+
 
 def dot(u, v):
     return sum(ui * vi for ui, vi in zip(u, v))
 
+
 def sub(u, v):
     return tuple(ui - vi for ui, vi in zip(u, v))
+
 
 def bfs(env: MiniGridEnv, obj: str):
     q = deque()
@@ -32,17 +36,21 @@ def bfs(env: MiniGridEnv, obj: str):
             return True, x
     return False, None
 
+
 ##
 #   DSL Terms and Functions
 ##
+
 
 def is_present(env: MiniGridEnv, obj: str):
     b, _ = bfs(env, obj)
     return b
 
+
 def get_nearest(env: MiniGridEnv, obj: str):
     _, obj_pos = bfs(env, obj)
     return obj_pos
+
 
 def check(env: MiniGridEnv, pos: Tuple[int, ...], obj: str):
     c = env.grid.get(*pos)
@@ -52,14 +60,17 @@ def check(env: MiniGridEnv, pos: Tuple[int, ...], obj: str):
         return False
     return c.type == obj
 
+
 def is_agent_facing(env: MiniGridEnv, pos: Tuple[int, ...]):
     if pos is None:
         return False
     return dot(sub(pos, env.agent_pos), DIR_TO_VEC[env.agent_dir]) > 0
 
+
 ##
 #   Features for Decision Trees
 ##
+
 
 def extract_features_DoorKey(env: MiniGridEnv) -> Tuple[bool, ...]:
     features = (
@@ -77,6 +88,7 @@ def extract_features_DoorKey(env: MiniGridEnv) -> Tuple[bool, ...]:
     )
     return features
 
+
 def feature_headers_DoorKey() -> List[str]:
     headers = [
         'is_present(env, "goal")',
@@ -92,3 +104,12 @@ def feature_headers_DoorKey() -> List[str]:
         'is_agent_facing(env, get_nearest(env, "key"))',
     ]
     return headers
+
+
+feature_register = {
+    "MiniGrid-DoorKey-16x16-v0": extract_features_DoorKey,
+}
+
+header_register = {
+    "MiniGrid-DoorKey-16x16-v0": feature_headers_DoorKey(),
+}
