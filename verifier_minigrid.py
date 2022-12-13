@@ -13,6 +13,7 @@ class Verifier:
         self,
         env: MiniGridEnv,
         action_selection_policy,
+        observation_function,
         seed=None,
         fix_start_env=False,
         num_trials: int = 20,
@@ -21,6 +22,7 @@ class Verifier:
     ) -> None:
         self.env = env
         self.action_selection_policy = action_selection_policy
+        self.observation_function = observation_function
 
         self.seed = seed
 
@@ -79,7 +81,7 @@ class Verifier:
 
     def step_using_asp(self):
         key = self.action_selection_policy(self.env)
-        self.demonstration.append((deepcopy(self.env), key))
+        self.demonstration.append((deepcopy(self.env), self.observation_function(self.env), key))
 
         key_to_action = {
             "left": MiniGridEnv.Actions.left,
@@ -98,6 +100,7 @@ class Verifier:
 def verify_action_selection_policy(
     env_name,
     action_selection_policy,
+    observation_function,
     seed=None,
     num_trials=20,
     timeout=100,
@@ -112,6 +115,7 @@ def verify_action_selection_policy(
     verifier = Verifier(
         env,
         action_selection_policy,
+        observation_function,
         seed=seed,
         num_trials=num_trials,
         show_window=show_window,
@@ -124,6 +128,7 @@ def verify_action_selection_policy(
 def verify_action_selection_policy_on_env(
     env: MiniGridEnv,
     action_selection_policy,
+    observation_function,
     seed=None,
     timeout=100,
     show_window=False,
@@ -138,6 +143,7 @@ def verify_action_selection_policy_on_env(
     verifier = Verifier(
         env,
         action_selection_policy,
+        observation_function,
         seed=seed,
         fix_start_env=True,
         show_window=show_window,
@@ -149,7 +155,6 @@ def verify_action_selection_policy_on_env(
 
 if __name__ == "__main__":
     import argparse
-    from pprint import pprint
     from dsl_minigrid import feature_register
     from asp_minigrid import (
         ground_truth_asp_register,
@@ -200,6 +205,7 @@ if __name__ == "__main__":
     sat, trace = verify_action_selection_policy(
         args.env_name,
         ground_truth_asp_register[args.env_name],
+        feature_register[args.env_name],
         seed=args.seed,
         num_trials=args.num_trials,
         timeout=args.timeout,
@@ -209,10 +215,10 @@ if __name__ == "__main__":
     )
     print(sat)
     if not sat:
-        for env, act in trace:
-            pprint(feature_register[args.env_name](env))
+        for env, obs, act in trace:
+            print(obs)
             print(f"action={act}")
-        for env, _ in trace:
+        for env, _, _ in trace:
             print(env)
 
     print("\n\n")
@@ -221,6 +227,7 @@ if __name__ == "__main__":
     sat, trace = verify_action_selection_policy(
         args.env_name,
         action_selection_policy_DoorKey_wrong,
+        feature_register[args.env_name],
         seed=args.seed,
         num_trials=args.num_trials,
         timeout=args.timeout,
@@ -230,10 +237,10 @@ if __name__ == "__main__":
     )
     print(sat)
     if not sat:
-        for env, act in trace:
-            pprint(feature_register[args.env_name](env))
+        for env, obs, act in trace:
+            print(obs)
             print(f"action={act}")
-        for env, _ in trace:
+        for env, _, _ in trace:
             print(env)
 
     print("\n\n")
@@ -241,6 +248,7 @@ if __name__ == "__main__":
     sat, trace = verify_action_selection_policy_on_env(
         trace[-4][0],
         action_selection_policy_DoorKey_wrong,
+        feature_register[args.env_name],
         seed=args.seed,
         timeout=args.timeout,
         show_window=args.show_window,
@@ -249,10 +257,10 @@ if __name__ == "__main__":
     )
     print(sat)
     if not sat:
-        for env, act in trace:
-            pprint(feature_register[args.env_name](env))
+        for env, obs, act in trace:
+            print(obs)
             print(f"action={act}")
-        for env, _ in trace:
+        for env, _, _ in trace:
             print(env)
 
     print("\n\n")

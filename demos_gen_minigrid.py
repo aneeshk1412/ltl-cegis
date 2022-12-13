@@ -14,6 +14,7 @@ class DemosGen:
         self,
         env: MiniGridEnv,
         action_selection_policy,
+        observation_function,
         seed=None,
         num_demos: int = 5,
         select_partial_demos: bool = False,
@@ -22,6 +23,7 @@ class DemosGen:
     ) -> None:
         self.env = env
         self.action_selection_policy = action_selection_policy
+        self.observation_function = observation_function
 
         self.seed = seed
         if self.seed is not None:
@@ -84,7 +86,7 @@ class DemosGen:
 
     def step_using_asp(self):
         key = self.action_selection_policy(self.env)
-        self.demonstration.append((deepcopy(self.env), key))
+        self.demonstration.append((deepcopy(self.env), self.observation_function(self.env), key))
 
         key_to_action = {
             "left": MiniGridEnv.Actions.left,
@@ -103,6 +105,7 @@ class DemosGen:
 def generate_demonstrations(
     env_name,
     action_selection_policy,
+    observation_function,
     seed=None,
     num_demos=5,
     timeout=100,
@@ -111,21 +114,6 @@ def generate_demonstrations(
     tile_size=32,
     agent_view=False,
 ):
-    """Generate Demonstrations from a given Action Selection Policy
-
-    Args:
-        env_name (str): Name of the Minigrid Environment Task to generate demonstrations for
-        action_selection_policy (function): A function that takes MiniGridEnv and outputs an action
-        seed (int, optional): Seed for RNG. Defaults to None.
-        num_demos (int, optional): Number of Demonstrations to run. Defaults to 5.
-        timeout (int, optional): Timeout to complete the task. Defaults to 100.
-        select_partial_demos (bool, optional): Whether to generate Partial Demonstrations. Defaults to False.
-        show_window (bool, optional): Whether to show animation window. Defaults to False.
-        tile_size (int, optional): Tile size for Window. Defaults to 32.
-
-    Returns:
-        List[Tuple(MiniGridEnv, str)]: A list of MiniGridEnv state and corresponding action string pairs
-    """
     env: MiniGridEnv = gym.make(env_name, tile_size=tile_size, max_steps=timeout)
     if agent_view:
         env = RGBImgPartialObsWrapper(env, tile_size)
@@ -133,6 +121,7 @@ def generate_demonstrations(
     demo_gem = DemosGen(
         env,
         action_selection_policy,
+        observation_function,
         seed=seed,
         num_demos=num_demos,
         select_partial_demos=select_partial_demos,
@@ -145,7 +134,6 @@ def generate_demonstrations(
 
 if __name__ == "__main__":
     import argparse
-    from pprint import pprint
     from dsl_minigrid import feature_register
     from asp_minigrid import ground_truth_asp_register
 
@@ -199,6 +187,7 @@ if __name__ == "__main__":
     result = generate_demonstrations(
         args.env_name,
         ground_truth_asp_register[args.env_name],
+        feature_register[args.env_name],
         seed=args.seed,
         num_demos=args.num_demos,
         timeout=args.timeout,
@@ -207,6 +196,6 @@ if __name__ == "__main__":
         tile_size=args.tile_size,
         agent_view=args.agent_view,
     )
-    for env, act in result:
-        pprint(feature_register[args.env_name](env))
+    for env, obs, act in result:
+        print(obs)
         print(f"action={act}")
