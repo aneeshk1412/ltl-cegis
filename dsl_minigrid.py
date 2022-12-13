@@ -111,5 +111,5 @@ feature_register = {
 }
 
 header_register = {
-    "MiniGrid-DoorKey-16x16-v0": feature_headers_DoorKey,
+    "MiniGrid-DoorKey-16x16-v0": feature_headers_DoorKey(),
 }
