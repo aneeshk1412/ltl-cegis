@@ -8,9 +8,6 @@ from minigrid.utils.window import Window
 from minigrid.minigrid_env import MiniGridEnv
 from minigrid.wrappers import ImgObsWrapper, RGBImgPartialObsWrapper
 
-from dsl_minigrid import extract_features_DoorKey
-from asp_minigrid import action_selection_policy_DoorKey_ground_truth
-
 
 class DemosGen:
     def __init__(
@@ -149,6 +146,8 @@ def generate_demonstrations(
 if __name__ == "__main__":
     import argparse
     from pprint import pprint
+    from dsl_minigrid import feature_register
+    from asp_minigrid import ground_truth_asp_register
 
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -199,7 +198,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     result = generate_demonstrations(
         args.env_name,
-        action_selection_policy_DoorKey_ground_truth,
+        ground_truth_asp_register[args.env_name],
         seed=args.seed,
         num_demos=args.num_demos,
         timeout=args.timeout,
@@ -208,6 +207,6 @@ if __name__ == "__main__":
         tile_size=args.tile_size,
         agent_view=args.agent_view,
     )
-    for line in result:
-        pprint(extract_features_DoorKey(line[0]))
-        print(f"action={line[1]}")
+    for env, act in result:
+        pprint(feature_register[args.env_name](env))
+        print(f"action={act}")

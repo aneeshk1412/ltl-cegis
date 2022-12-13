@@ -92,3 +92,11 @@ def feature_headers_DoorKey() -> List[str]:
         'is_agent_facing(env, get_nearest(env, "key"))',
     ]
     return headers
+
+feature_register = {
+    "MiniGrid-DoorKey-16x16-v0": extract_features_DoorKey,
+}
+
+header_register = {
+    "MiniGrid-DoorKey-16x16-v0": feature_headers_DoorKey,
+}

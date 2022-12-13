@@ -7,13 +7,6 @@ from minigrid.utils.window import Window
 from minigrid.minigrid_env import MiniGridEnv
 from minigrid.wrappers import ImgObsWrapper, RGBImgPartialObsWrapper
 
-from dsl_minigrid import extract_features_DoorKey
-from asp_minigrid import (
-    action_selection_policy_DoorKey_ground_truth,
-    action_selection_policy_DoorKey_wrong,
-)
-
-
 class Verifier:
     def __init__(
         self,
@@ -156,6 +149,8 @@ def verify_action_selection_policy_on_env(
 if __name__ == "__main__":
     import argparse
     from pprint import pprint
+    from dsl_minigrid import feature_register
+    from asp_minigrid import ground_truth_asp_register, action_selection_policy_DoorKey_wrong
 
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -200,7 +195,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     sat, trace = verify_action_selection_policy(
         args.env_name,
-        action_selection_policy_DoorKey_ground_truth,
+        ground_truth_asp_register[args.env_name],
         seed=args.seed,
         num_trials=args.num_trials,
         timeout=args.timeout,
@@ -211,7 +206,7 @@ if __name__ == "__main__":
     print(sat)
     if not sat:
         for env, act in trace:
-            pprint(extract_features_DoorKey(env))
+            pprint(feature_register[args.env_name](env))
             print(f"action={act}")
         for env, _ in trace:
             print(env)
@@ -232,7 +227,7 @@ if __name__ == "__main__":
     print(sat)
     if not sat:
         for env, act in trace:
-            pprint(extract_features_DoorKey(env))
+            pprint(feature_register[args.env_name](env))
             print(f"action={act}")
         for env, _ in trace:
             print(env)
@@ -251,7 +246,7 @@ if __name__ == "__main__":
     print(sat)
     if not sat:
         for env, act in trace:
-            pprint(extract_features_DoorKey(env))
+            pprint(feature_register[args.env_name](env))
             print(f"action={act}")
         for env, _ in trace:
             print(env)

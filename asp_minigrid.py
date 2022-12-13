@@ -40,3 +40,7 @@ def action_selection_policy_DoorKey_wrong(env: MiniGridEnv):
 def action_selection_policy_decision_tree(env: MiniGridEnv, model, extract_features):
 	state = pd.DataFrame([extract_features(env)])
 	return model.predict(state)[0]
+
+ground_truth_asp_register = {
+    "MiniGrid-DoorKey-16x16-v0": action_selection_policy_DoorKey_ground_truth,
+}
