@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
 
+# cmd to run:
+# python3 cegis_dtree_minigrid.py --env-name MiniGrid-DoorKey-16x16-v0 --num-demos 2 --num-trials 100 --show-window
+
+
 import pickle
 import pandas as pd
 from sklearn import tree
@@ -111,8 +115,6 @@ if __name__ == "__main__":
         help="timeout to complete the task",
         default=100,
     )
-
-
     parser.add_argument(
         "--demo-seed",
         type=int,
@@ -131,8 +133,6 @@ if __name__ == "__main__":
         help="whether to use complete demonstration or select a substring",
         action="store_true",
     )
-
-
     parser.add_argument(
         "--verifier-seed",
         type=int,
@@ -145,8 +145,6 @@ if __name__ == "__main__":
         help="number of trials to verify on",
         default=100,
     )
-
-
     parser.add_argument(
         "--tree-seed",
         type=int,
@@ -159,8 +157,6 @@ if __name__ == "__main__":
         help="whether to show the decision tree",
         action="store_true",
     )
-
-
     parser.add_argument(
         "--show-window",
         default=False,

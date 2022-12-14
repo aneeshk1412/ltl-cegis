@@ -1,4 +1,11 @@
 #!/usr/bin/env python3
+# TODO: when running the manual mode, the grid resets when the robot reaches front of the door. Fix this.
+# 
+# cmd to run the learned model: 
+# python3 manual_check_minigrid.py --env-name MiniGrid-DoorKey-16x16-v0  --timeout 100 --model-file DT.model
+
+
+
 
 import pickle
 import gymnasium as gym
