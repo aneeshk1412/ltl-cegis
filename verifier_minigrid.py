@@ -30,6 +30,7 @@ class Verifier:
         trials: int = 0,
         show_window: bool = False,
         agent_view: bool = False,
+        epoch : int = -1,
     ) -> None:
         self.env = env
         self.action_selection_policy = action_selection_policy
@@ -42,6 +43,7 @@ class Verifier:
         self.trials = trials
         self.result = (True, None)
         self.step_cnt = 0
+        self.epoch = epoch
 
         self.fix_start_env = fix_start_env
         if self.fix_start_env:
@@ -71,7 +73,7 @@ class Verifier:
 
     def step(self, action: MiniGridEnv.Actions):
         _, reward, terminated, truncated, _ = self.env.step(action)
-        self.window.set_caption( 'Trial#' + str(self.trials) + '  Step#'+ str(self.step_cnt) + '  ' +  str(action).replace('s.',':'))
+        self.window.set_caption( 'Epoch#' + str(self.epoch)+'   Trial#' + str(self.trials) + '   Step#'+ str(self.step_cnt) + '   ' +  str(action).replace('s.',':'))
         self.step_cnt = self.step_cnt + 1
         if truncated:
             print(f"timeout!")
@@ -126,6 +128,7 @@ def verify_action_selection_policy(
     show_window=False,
     tile_size=32,
     agent_view=False,
+    epoch = -1,
 ):
     env: MiniGridEnv = gym.make(env_name, tile_size=tile_size, max_steps=timeout)
     if agent_view:
@@ -146,6 +149,7 @@ def verify_action_selection_policy(
             fix_start_env=True,
             show_window=show_window,
             agent_view=agent_view,
+            epoch=epoch
         )
         sat, trace = verifier.start()
         if not sat:
@@ -161,6 +165,7 @@ def verify_action_selection_policy(
         trials=i,
         show_window=show_window,
         agent_view=agent_view,
+        epoch=epoch
     )
     sat, trace = verifier.start()
     return sat, trace
@@ -175,6 +180,7 @@ def verify_action_selection_policy_on_env(
     show_window=False,
     tile_size=32,
     agent_view=False,
+    epoch = -1,
 ):
     env.max_steps = timeout
     if agent_view:
@@ -190,6 +196,7 @@ def verify_action_selection_policy_on_env(
         fix_start_env=True,
         show_window=show_window,
         agent_view=agent_view,
+        epoch=epoch
     )
     sat, trace = verifier.start()
     return sat, trace

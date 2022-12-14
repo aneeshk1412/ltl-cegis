@@ -66,6 +66,20 @@ def is_agent_facing(env: MiniGridEnv, pos: Tuple[int, ...]):
         return False
     return dot(sub(pos, env.agent_pos), DIR_TO_VEC[env.agent_dir]) > 0
 
+def is_at_agents_left(env: MiniGridEnv, pos: Tuple[int, ...]):
+    if not pos:
+        return False
+    diff_vec = sub(pos, env.agent_pos)
+    dir_vec = DIR_TO_VEC[env.agent_dir]
+    return ( diff_vec[1]*dir_vec[0] < 0) or ( diff_vec[0]*dir_vec[1] > 0)
+
+def is_at_agents_right(env: MiniGridEnv, pos: Tuple[int, ...]):
+    if not pos:
+        return False
+    diff_vec = sub(pos, env.agent_pos)
+    dir_vec = DIR_TO_VEC[env.agent_dir]
+    return (diff_vec[1]*dir_vec[0] > 0) or (diff_vec[0]*dir_vec[1] < 0)
+
 
 ##
 #   Features for Decision Trees
@@ -75,16 +89,25 @@ def is_agent_facing(env: MiniGridEnv, pos: Tuple[int, ...]):
 def extract_features_DoorKey(env: MiniGridEnv) -> Tuple[bool, ...]:
     features = (
         is_present(env, "goal"),
-        is_present(env, "door"),
-        is_present(env, "key"),
-        check(env, env.front_pos, "empty"),
-        check(env, env.front_pos, "goal"),
-        check(env, env.front_pos, "door"),
-        check(env, env.front_pos, "key"),
-        check(env, env.front_pos, "wall"),
         is_agent_facing(env, get_nearest(env, "goal")),
+        is_at_agents_left(env, get_nearest(env, "goal")),
+        is_at_agents_right(env, get_nearest(env, "goal")),
+        check(env, env.front_pos, "goal"),
+
+        is_present(env, "door"),
         is_agent_facing(env, get_nearest(env, "door")),
+        is_at_agents_left(env, get_nearest(env, "door")),
+        is_at_agents_right(env, get_nearest(env, "door")),
+        check(env, env.front_pos, "door"),
+
+        is_present(env, "key"),
         is_agent_facing(env, get_nearest(env, "key")),
+        is_at_agents_left(env, get_nearest(env, "key")),
+        is_at_agents_right(env, get_nearest(env, "key")),
+        check(env, env.front_pos, "key"),
+
+        check(env, env.front_pos, "empty"),
+        check(env, env.front_pos, "wall"),
     )
     return features
 
@@ -92,16 +115,25 @@ def extract_features_DoorKey(env: MiniGridEnv) -> Tuple[bool, ...]:
 def feature_headers_DoorKey() -> List[str]:
     headers = [
         'is_present(env, "goal")',
-        'is_present(env, "door")',
-        'is_present(env, "key")',
-        'check(env, env.front_pos, "empty")',
-        'check(env, env.front_pos, "goal")',
-        'check(env, env.front_pos, "door")',
-        'check(env, env.front_pos, "key")',
-        'check(env, env.front_pos, "wall")',
         'is_agent_facing(env, get_nearest(env, "goal"))',
+        'is_at_agents_left(env, get_nearest(env, "goal"))',
+        'is_at_agents_right(env, get_nearest(env, "goal"))',
+        'check(env, env.front_pos, "goal")',
+
+        'is_present(env, "door")',
         'is_agent_facing(env, get_nearest(env, "door"))',
+        'is_at_agents_left(env, get_nearest(env, "door"))',
+        'is_at_agents_right(env, get_nearest(env, "door"))',
+        'check(env, env.front_pos, "door")',
+        
+        'is_present(env, "key")',
         'is_agent_facing(env, get_nearest(env, "key"))',
+        'is_at_agents_left(env, get_nearest(env, "key"))',
+        'is_at_agents_right(env, get_nearest(env, "key"))',
+        'check(env, env.front_pos, "key")',
+        
+        'check(env, env.front_pos, "empty")',
+        'check(env, env.front_pos, "wall")',
     ]
     return headers
 

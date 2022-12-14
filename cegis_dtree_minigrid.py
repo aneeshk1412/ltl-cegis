@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 # cmd to run:
-# python3 cegis_dtree_minigrid.py --env-name MiniGrid-DoorKey-16x16-v0 --num-demos 2 --num-trials 100 --show-window
+# python3 cegis_dtree_minigrid.py --env-name MiniGrid-DoorKey-16x16-v0 --num-demos 2 --num-trials 100 --show-window --plot-tree
 
 
 import pickle
@@ -207,6 +207,7 @@ if __name__ == "__main__":
             show_window=args.show_window,
             tile_size=args.tile_size,
             agent_view=args.agent_view,
+            epoch=epoch
         )
 
         print(f"{sat = }")
