@@ -73,7 +73,8 @@ class Verifier:
 
     def step(self, action: MiniGridEnv.Actions):
         _, reward, terminated, truncated, _ = self.env.step(action)
-        self.window.set_caption( 'Epoch#' + str(self.epoch)+'   Trial#' + str(self.trials) + '   Step#'+ str(self.step_cnt) + '   ' +  str(action).replace('s.',':'))
+        if self.show_window:
+            self.window.set_caption( 'Epoch#' + str(self.epoch)+'   Trial#' + str(self.trials) + '   Step#'+ str(self.step_cnt) + '   ' +  str(action).replace('s.',':'))
         self.step_cnt = self.step_cnt + 1
         if truncated:
             print(f"timeout!")
@@ -136,25 +137,26 @@ def verify_action_selection_policy(
         env = ImgObsWrapper(env)
 
     i = 0
-    for saved_env in load_all_pickle(env_name + '.pkl'):
-        saved_env.max_steps = timeout
-        saved_env.step_count = 0
-        verifier = Verifier(
-            saved_env,
-            action_selection_policy,
-            observation_function,
-            seed=seed,
-            num_trials=num_trials,
-            trials=i,
-            fix_start_env=True,
-            show_window=show_window,
-            agent_view=agent_view,
-            epoch=epoch
-        )
-        sat, trace = verifier.start()
-        if not sat:
-            return sat, trace
-        i += 1
+    if False:
+        for saved_env in load_all_pickle(env_name + '.pkl'):
+            saved_env.max_steps = timeout
+            saved_env.step_count = 0
+            verifier = Verifier(
+                saved_env,
+                action_selection_policy,
+                observation_function,
+                seed=seed,
+                num_trials=num_trials,
+                trials=i,
+                fix_start_env=True,
+                show_window=show_window,
+                agent_view=agent_view,
+                epoch=epoch
+            )
+            sat, trace = verifier.start()
+            if not sat:
+                return sat, trace
+            i += 1
 
     verifier = Verifier(
         env,
