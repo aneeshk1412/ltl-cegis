@@ -175,18 +175,21 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
+    num_demos = 1 if args.num_demos == 0 else args.num_demos
     positive_demos = generate_demonstrations(
         args.env_name,
         ground_truth_asp_register[args.env_name],
         feature_register[args.env_name],
         seed=args.demo_seed,
-        num_demos=args.num_demos,
+        num_demos=num_demos,
         timeout=args.timeout,
         select_partial_demos=args.select_partial_demos,
         show_window=args.show_window,
         tile_size=args.tile_size,
         agent_view=args.agent_view,
     )
+    if args.num_demos == 0:
+        positive_demos = positive_demos[:1]
     positive_dict = dict((obs, act) for _, obs, act in positive_demos)
     negative_dict = dict()
 

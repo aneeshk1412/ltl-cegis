@@ -73,7 +73,8 @@ class Verifier:
 
     def step(self, action: MiniGridEnv.Actions):
         _, reward, terminated, truncated, _ = self.env.step(action)
-        self.window.set_caption( 'Epoch#' + str(self.epoch)+'   Trial#' + str(self.trials) + '   Step#'+ str(self.step_cnt) + '   ' +  str(action).replace('s.',':'))
+        if self.show_window:
+            self.window.set_caption( 'Epoch#' + str(self.epoch)+'   Trial#' + str(self.trials) + '   Step#'+ str(self.step_cnt) + '   ' +  str(action).replace('s.',':'))
         self.step_cnt = self.step_cnt + 1
         if truncated:
             print(f"timeout!")
@@ -99,7 +100,7 @@ class Verifier:
         self.trials += 1
         if self.show_window:
             self.window.set_caption(self.env.mission)
-            
+
     def step_using_asp(self):
         key = self.action_selection_policy(self.env)
         self.demonstration.append((deepcopy(self.env), self.observation_function(self.env), key))

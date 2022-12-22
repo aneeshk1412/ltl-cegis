@@ -1,14 +1,16 @@
 import matplotlib.pyplot as plt
 
 def avg(l):
-    assert(len(l) > 0)
-    return sum(l) / len(l)
+    if len(l):
+        return sum(l) / len(l)
+    return 0
 
 def num_demos_vs_num_cegis_loops():
-    X = [1, 2, 3, 5, 10]
-    Y = [[7, 16, 29, 103, 44], [10, 3, 18, 4, 49], [9, 64, 2, 1, 21], [0, 1, 1, 2, 2], [0, 1, 0, 2, 3]]
-    Y = [avg(l) for l in Y]
-    return X, Y
+    seeds = [100, 300, 400]
+    num_demos = [1, 2, 3, 5, 8, 10]
+    num_cegis_loops = [[11, 13, 4], [11, 13, 4], [11, 13, 4], [11, 13, 4], [], []]
+    num_cegis_loops = [avg(l) for l in num_cegis_loops]
+    return num_demos, num_cegis_loops
 
 if __name__ == '__main__':
     X, Y = num_demos_vs_num_cegis_loops()
