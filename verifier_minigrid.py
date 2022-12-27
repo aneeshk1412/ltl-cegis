@@ -100,7 +100,7 @@ class Verifier:
         self.trials += 1
         if self.show_window:
             self.window.set_caption(self.env.mission)
-            
+
     def step_using_asp(self):
         key = self.action_selection_policy(self.env)
         self.demonstration.append((deepcopy(self.env), self.observation_function(self.env), key))
