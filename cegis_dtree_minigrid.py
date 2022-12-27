@@ -207,7 +207,8 @@ if __name__ == "__main__":
             show_window=args.show_window,
             tile_size=args.tile_size,
             agent_view=args.agent_view,
-            epoch=epoch
+            epoch=epoch,
+            use_known_error_envs=True
         )
 
         print(f"{sat = }")

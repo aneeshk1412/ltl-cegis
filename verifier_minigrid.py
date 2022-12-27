@@ -130,6 +130,7 @@ def verify_action_selection_policy(
     tile_size=32,
     agent_view=False,
     epoch = -1,
+    use_known_error_envs=False,
 ):
     env: MiniGridEnv = gym.make(env_name, tile_size=tile_size, max_steps=timeout)
     if agent_view:
@@ -137,7 +138,7 @@ def verify_action_selection_policy(
         env = ImgObsWrapper(env)
 
     i = 0
-    if False:
+    if use_known_error_envs:
         for saved_env in load_all_pickle(env_name + '.pkl'):
             saved_env.max_steps = timeout
             saved_env.step_count = 0
