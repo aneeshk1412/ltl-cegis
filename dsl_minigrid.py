@@ -112,6 +112,23 @@ def extract_features_DoorKey(env: MiniGridEnv) -> Tuple[bool, ...]:
     return features
 
 
+
+def env_state_to_readable_str(env:MiniGridEnv):
+    res = ''
+    i = 0 
+    indent = '  '
+    vals = extract_features_DoorKey(env)
+    for key in feature_headers_DoorKey():
+        key = key.replace('env, ', '').replace('"','').replace('env.','').replace('get_nearest(','').replace('check(front_pos, ','in_front(').replace('is_','').replace('agent_','').replace('))',')').replace('agent_','').replace('agents_','')
+        res += indent
+        res += ('F'+str(i)+":").ljust(5,' ')
+        res += (key+':').ljust(17,' ')
+        res += str(vals[i])
+        res += '\n'
+        i+=1
+    return res
+
+
 def feature_headers_DoorKey() -> List[str]:
     headers = [
         'is_present(env, "goal")',
