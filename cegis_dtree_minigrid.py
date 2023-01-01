@@ -103,41 +103,60 @@ def random_loop_correction(positive_dict, trace):
 
 def one_shot_learning(args):
     # init variabales
-    cex_cnt = 1
+    show_tree = False
 
     # run demonstrations from the ground truth and save them to samples.csv file -- need not be called all the time
     # generate_and_save_samples(args)
 
     # load existing samples from samples.csv file (this file initially contains samples from 2 correct demonstrations)
-    with open('samples.csv', 'r') as read_obj:
-        csv_reader = csv.reader(read_obj)
-        samples = list(csv_reader)
-    
+    samples = []
     state_demos = []
     act_demos = []
-
-    for sample in samples:
-        act_demos.append(sample[-1])
-        state_demos.append([eval(x) for x in sample[:-1]])
-
-    for a in act_demos:
-        print (a)
+    with open('samples.csv', 'r') as read_obj:
+        csv_reader = csv.reader(read_obj)
+        for line in csv_reader:
+            if '#' in line[0]:
+                continue
+            samples.append(line)
+            act_demos.append(line[-1])
+            state_demos.append([eval(x) for x in line[:-1]])
 
 
     # train a BDT model based on the samples
-    aspmodel = tree.DecisionTreeClassifier(
-        class_weight="balanced",
-        random_state=args.tree_seed,
-        max_features=None,
-        max_leaf_nodes=None,
-    )
-    clf = aspmodel.fit(state_demos, act_demos)
+    aspmodel = tree.DecisionTreeClassifier(class_weight="balanced", random_state=args.tree_seed)
+    bdt_model = aspmodel.fit(state_demos, act_demos)
+    if show_tree:
+        tree.plot_tree(
+                bdt_model,
+                max_depth=None,
+                class_names=sorted(set(act_demos)),
+                label="none",
+                precision=1,
+                feature_names=header_register[args.env_name],
+                rounded=True,
+                fontsize=5,
+                proportion=True,
+            )
+        plt.show()
 
-    # verify the model and generate cex_cnt counter-examples (verify consists of 100 random tests)
-    # TODO
+    # verify the model and generate a number of counter-examples (verification consists of 100 random tests)
+    action_selection_policy = lambda env: action_selection_policy_decision_tree(env, bdt_model, feature_register[args.env_name])
+    sat, trace = verify_action_selection_policy(
+            args.env_name,
+            action_selection_policy,
+            feature_register[args.env_name],
+            seed=args.verifier_seed,
+            num_trials=args.num_trials,
+            timeout=args.timeout,
+            show_window=args.show_window,
+            tile_size=args.tile_size,
+            agent_view=args.agent_view,
+            use_known_error_envs = False,
+            verify_each_step_manually = False, 
+            #verify_each_step_manually = True, 
+        )
+    print(f"{sat = }")
 
-    # TODO ensure that, given high-quality samples, we can get to a verified model quickly (put the completed set of samples in successful_samples.csv file)
-    # put the 
 
     # suggest a (set of) new samples based on the counter-examples (try to automate the insights from above step)
     # TODO 

@@ -8,6 +8,8 @@ from minigrid.utils.window import Window
 from minigrid.minigrid_env import MiniGridEnv
 from minigrid.wrappers import ImgObsWrapper, RGBImgPartialObsWrapper
 
+from dsl_minigrid import env_state_to_readable_str, extract_features_DoorKey
+
 
 def load_all_pickle(filename):
     with open(filename, "rb") as f:
@@ -31,6 +33,7 @@ class Verifier:
         show_window: bool = False,
         agent_view: bool = False,
         epoch : int = -1,
+        verify_each_step_manually: bool = False
     ) -> None:
         self.env = env
         self.action_selection_policy = action_selection_policy
@@ -44,6 +47,7 @@ class Verifier:
         self.result = (True, None)
         self.step_cnt = 0
         self.epoch = epoch
+        self.verify_each_step_manually = verify_each_step_manually
 
         self.fix_start_env = fix_start_env
         if self.fix_start_env:
@@ -90,6 +94,7 @@ class Verifier:
             print(f"CEx at: {self.trials = } out of {self.num_trials = }")
             return False
         if terminated:
+            print ('running a new test')
             self.reset(self.seed)
             self.done = True
         return True
@@ -114,8 +119,19 @@ class Verifier:
             "pagedown": MiniGridEnv.Actions.drop,
             "enter": MiniGridEnv.Actions.done,
         }
-
         action = key_to_action[key]
+
+        print (env_state_to_readable_str(self.env))
+        print (str(extract_features_DoorKey(self.env)).replace('(','').replace(')','').replace(' ',''))
+        # wait for the user's approval for this step -- this is used to observe the behaviors of the ASP
+        if self.verify_each_step_manually:
+            input(str(action))
+        else:
+            print (str(action))
+        print (' ')
+
+
+        
         return self.step(action)
 
 
@@ -131,6 +147,7 @@ def verify_action_selection_policy(
     agent_view=False,
     epoch = -1,
     use_known_error_envs=False,
+    verify_each_step_manually = False,
 ):
     env: MiniGridEnv = gym.make(env_name, tile_size=tile_size, max_steps=timeout)
     if agent_view:
@@ -168,7 +185,8 @@ def verify_action_selection_policy(
         trials=i,
         show_window=show_window,
         agent_view=agent_view,
-        epoch=epoch
+        epoch=epoch,
+        verify_each_step_manually = verify_each_step_manually
     )
     sat, trace = verifier.start()
     return sat, trace

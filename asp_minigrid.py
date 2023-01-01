@@ -71,7 +71,8 @@ def action_selection_policy_DoorKey_wrong(env: MiniGridEnv):
 
 def action_selection_policy_decision_tree(env: MiniGridEnv, model, extract_features):
     state = pd.DataFrame([extract_features(env)])
-    return model.predict(state)[0]
+    action = model.predict(state)[0]
+    return action
 
 
 ground_truth_asp_register = {
