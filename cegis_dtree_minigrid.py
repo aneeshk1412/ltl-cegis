@@ -4,6 +4,7 @@
 # python3 cegis_dtree_minigrid.py --env-name MiniGrid-DoorKey-16x16-v0 --num-demos 2 --num-trials 100 --show-window --plot-tree
 
 
+import csv
 import pickle
 import pandas as pd
 from sklearn import tree
@@ -99,6 +100,64 @@ def random_loop_correction(positive_dict, trace):
     return None, None
 
 
+
+def one_shot_learning(args):
+    # init variabales
+    cex_cnt = 1
+
+    # run demonstrations from the ground truth and save them to samples.csv file -- need not be called all the time
+    # generate_and_save_samples(args)
+
+    # load existing samples from samples.csv file (this file initially contains samples from 2 correct demonstrations)
+    with open('samples.csv', 'r') as read_obj:
+        csv_reader = csv.reader(read_obj)
+        samples = list(csv_reader)
+
+    # train a BDT model based on the samples
+    # TODO
+
+    # verify the model and generate cex_cnt counter-examples (verify consists of 100 random tests)
+    # TODO
+
+    # TODO ensure that, given high-quality samples, we can get to a verified model quickly (put the completed set of samples in successful_samples.csv file)
+    # put the 
+
+    # suggest a (set of) new samples based on the counter-examples (try to automate the insights from above step)
+    # TODO 
+
+    pass
+
+
+
+def generate_and_save_samples(args):
+    num_demos = 1 if args.num_demos == 0 else args.num_demos
+    positive_demos = generate_demonstrations(
+        args.env_name,
+        ground_truth_asp_register[args.env_name],
+        feature_register[args.env_name],
+        seed=args.demo_seed,
+        num_demos=num_demos,
+        timeout=args.timeout,
+        select_partial_demos=args.select_partial_demos,
+        show_window=args.show_window,
+        tile_size=args.tile_size,
+        agent_view=args.agent_view,
+    )
+    samples = []
+    for _,fv,a in positive_demos:
+        sample = [x for x in fv]+[str(a)]
+        if sample not in samples:
+            samples.append(sample)
+
+    with open("samples.csv", "w", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerows(samples)
+
+
+
+
+
+
 if __name__ == "__main__":
     import argparse
     from asp_minigrid import ground_truth_asp_register, action_selection_policy_decision_tree
@@ -175,6 +234,11 @@ if __name__ == "__main__":
     )
 
     args = parser.parse_args()
+
+    one_shot_learning(args=args)
+    raise Exception('EXIT')
+
+
 
     num_demos = 1 if args.num_demos == 0 else args.num_demos
     positive_demos = generate_demonstrations(
