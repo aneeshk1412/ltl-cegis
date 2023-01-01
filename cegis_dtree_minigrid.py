@@ -112,9 +112,26 @@ def one_shot_learning(args):
     with open('samples.csv', 'r') as read_obj:
         csv_reader = csv.reader(read_obj)
         samples = list(csv_reader)
+    
+    state_demos = []
+    act_demos = []
+
+    for sample in samples:
+        act_demos.append(sample[-1])
+        state_demos.append([eval(x) for x in sample[:-1]])
+
+    for a in act_demos:
+        print (a)
+
 
     # train a BDT model based on the samples
-    # TODO
+    aspmodel = tree.DecisionTreeClassifier(
+        class_weight="balanced",
+        random_state=args.tree_seed,
+        max_features=None,
+        max_leaf_nodes=None,
+    )
+    clf = aspmodel.fit(state_demos, act_demos)
 
     # verify the model and generate cex_cnt counter-examples (verify consists of 100 random tests)
     # TODO
