@@ -141,7 +141,7 @@ def one_shot_learning(args):
 
     # verify the model and generate a number of counter-examples (verification consists of 100 random tests)
     action_selection_policy = lambda env: action_selection_policy_decision_tree(env, bdt_model, feature_register[args.env_name])
-    sat, trace = verify_action_selection_policy(
+    sats, traces = verify_action_selection_policy(
             args.env_name,
             action_selection_policy,
             feature_register[args.env_name],
@@ -153,16 +153,17 @@ def one_shot_learning(args):
             agent_view=args.agent_view,
             use_known_error_envs = False,
             verify_each_step_manually = False, 
-            #verify_each_step_manually = True, 
+            cex_count = 5,
         )
-    print(f"{sat = }")
-
+    print(f"{sats = }")
 
     # suggest a (set of) new samples based on the counter-examples (try to automate the insights from above step)
-    # TODO 
+    repair = analyze_traces_suggest_repair(traces) 
+    print (repair)
+    
 
+def analyze_traces_suggest_repair(traces):
     pass
-
 
 
 def generate_and_save_samples(args):

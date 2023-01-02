@@ -148,6 +148,7 @@ def verify_action_selection_policy(
     epoch = -1,
     use_known_error_envs=False,
     verify_each_step_manually = False,
+    cex_count = 1,
 ):
     env: MiniGridEnv = gym.make(env_name, tile_size=tile_size, max_steps=timeout)
     if agent_view:
@@ -175,21 +176,25 @@ def verify_action_selection_policy(
             if not sat:
                 return sat, trace
             i += 1
-
-    verifier = Verifier(
-        env,
-        action_selection_policy,
-        observation_function,
-        seed=seed,
-        num_trials=num_trials,
-        trials=i,
-        show_window=show_window,
-        agent_view=agent_view,
-        epoch=epoch,
-        verify_each_step_manually = verify_each_step_manually
-    )
-    sat, trace = verifier.start()
-    return sat, trace
+    sats = []
+    traces = []
+    for iter in range(cex_count):
+        verifier = Verifier(
+            env,
+            action_selection_policy,
+            observation_function,
+            seed=seed,
+            num_trials=num_trials,
+            trials=i,
+            show_window=show_window,
+            agent_view=agent_view,
+            epoch=epoch,
+            verify_each_step_manually = verify_each_step_manually
+        )
+        sat, trace = verifier.start()
+        sats.append(sat)
+        traces.append(trace)
+    return sats, traces
 
 
 def verify_action_selection_policy_on_env(
