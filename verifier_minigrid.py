@@ -179,6 +179,7 @@ def verify_action_selection_policy(
     sats = []
     traces = []
     for iter in range(cex_count):
+        print ('generating counter example number', iter)
         verifier = Verifier(
             env,
             action_selection_policy,
@@ -193,7 +194,10 @@ def verify_action_selection_policy(
         )
         sat, trace = verifier.start()
         sats.append(sat)
-        traces.append(trace)
+        if not sat:
+            traces.append(trace)
+        else:
+            break # once a sat case is found do not continue
     return sats, traces
 
 

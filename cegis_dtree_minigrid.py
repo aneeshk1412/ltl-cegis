@@ -154,25 +154,52 @@ def one_shot_learning(args):
             agent_view=args.agent_view,
             use_known_error_envs = False,
             verify_each_step_manually = False, 
-            cex_count = 3,
+            cex_count = 10,
         )
     print(f"{sats = }")
 
     # suggest a (set of) new samples based on the counter-examples (try to automate the insights from above step)
-    repair = analyze_traces_suggest_repair(traces) 
-    print (repair)
+    if len(traces) > 0 :
+        repair = analyze_traces_suggest_repair(traces) 
+        print (repair)
+    else:
+        print ('correct program is found')
     
 
 def analyze_traces_suggest_repair(traces):
-    manually_added_samples = [[False,False,False,False,False,True,False,False,True,False,True,True,False,False,False,False,False], \
-        [False,False,False,False,False,True,False,True,False,False,True,False,False,True,False,False,False],
-        [False,False,False,False,False,True,True,True,False,False,True,False,True,False,False,False,False],
-        [False,False,False,False,False,True,True,False,True,False,True,False,False,False,False,False,False],
-        [False,False,False,False,False,True,True,False,True,False,True,False,False,True,False,False,False],
-        [False,False,False,False,False,True,True,False,True,False,False,False,False,False,False,False,True],
-        [False,False,False,False,False,True,False,False,True,False,True,False,True,False,False,False,True],
-        [False,False,False,False,False,True,True,False,False,True,True,False,False,True,False,False,False],
-        [False,False,False,False,False,True,True,False,False,True,True,False,True,False,False,False,False]]
+
+
+
+    #manually_added_samples = [[False,False,False,False,False,True,False,False,True,False,True,True,False,False,False,False,False], \
+    #    [False,False,False,False,False,True,False,True,False,False,True,False,False,True,False,False,False],
+    #    [False,False,False,False,False,True,True,True,False,False,True,False,True,False,False,False,False],
+    #    [False,False,False,False,False,True,True,False,True,False,True,False,False,False,False,False,False],
+    #    [False,False,False,False,False,True,True,False,True,False,True,False,False,True,False,False,False],
+    #    [False,False,False,False,False,True,True,False,True,False,False,False,False,False,False,False,True],
+    #    [False,False,False,False,False,True,False,False,True,False,True,False,True,False,False,False,True],
+    #    [False,False,False,False,False,True,True,False,False,True,True,False,False,True,False,False,False],
+    #    [False,False,False,False,False,True,True,False,False,True,True,False,True,False,False,False,False],
+    #    [False,False,False,False,False,True,True,False,True,False,True,False,True,False,False,False,False]]
+    
+    #load known samples from samples.csv file (this is only used for manual analysis)
+    manually_added_samples = []
+    manually_added_samples_included_in_training = []
+    with open('samples.csv', 'r') as read_obj:
+        csv_reader = csv.reader(read_obj)
+        begin = False
+        for line in csv_reader:
+            if '# begin samples from manual inspection of counter-examples' in line[0]:
+                begin = True
+                continue
+            if begin:
+                if '#' in line[0]:
+                    manually_added_samples_included_in_training.append('N')
+                else:
+                    manually_added_samples_included_in_training.append('Y')
+                manually_added_samples.append([eval(x.replace('#','')) for x in line[:-1]])    
+    #print (manually_added_samples)
+    #raise Exception ('salam')
+    
     # a dictionary to keep track of number of occurences of the manually added samples with repetition per trace
     mas_cnt_with_rep = {tuple(x):0 for x in manually_added_samples}
     mas_cnt_without_rep = {tuple(x):0 for x in manually_added_samples}
@@ -181,6 +208,8 @@ def analyze_traces_suggest_repair(traces):
 
     
     event_map = dict() # number of each state occurence in the given traces
+    no_rep_event_map = dict() # number of each state occurence in the given traces
+
     action_map = dict()
     for trace in traces:
         trace_cnt += 1
@@ -203,18 +232,41 @@ def analyze_traces_suggest_repair(traces):
             # increment counter without reps
             if bv in mas_cnt_without_rep:
                 mas_cnt_without_rep[bv] = mas_cnt_without_rep[bv] + 1
-
+            if bv in no_rep_event_map:
+                no_rep_event_map[bv] = no_rep_event_map[bv] + 1
+            else:
+                no_rep_event_map[bv] = 1
+    # following vars are used to find the max with and without repetition 
     i = 0 
-    res = [['feature']  + ['action taken', 'number of occurences'] + readable_headers_list() ]
+    max_seen_cnt = -1
+    max_index = -1
+    chosen_bv = None
+    no_rep_max_seen_cnt = -1
+    no_rep_chosen_bv = None
+    no_rep_max_index = -1
+
+
+    res = [['feature']  + ['action taken', 'number w/ rep', 'number w/o rep'] + readable_headers_list() ]
     for s in event_map:
-        res.append(['event#'+str(i)] + list(action_map[s]) + [event_map[s]] + [x for x in s] )
+        res.append(['bv#'+str(i)] + list(action_map[s]) + [event_map[s]] + [no_rep_event_map[s]]+ [str(x)[0] for x in s] )
+        if event_map[s] > max_seen_cnt:
+            max_seen_cnt = event_map[s]
+            chosen_bv = s
+            max_index = i
+        if no_rep_event_map[s] > no_rep_max_seen_cnt:
+            no_rep_max_seen_cnt = no_rep_event_map[s]
+            no_rep_chosen_bv = s
+            no_rep_max_index = i
         i += 1
+
     transposed_data = list(zip(*res))
-    print ('='*100)
+
+
+    print ('#'*200)
     i = 0
     for bv in manually_added_samples:
         print ('bv#'+str(i), str(mas_cnt_with_rep[tuple(bv)]).ljust(4,' '), 
-        str(mas_cnt_without_rep[tuple(bv)]).ljust(4,' '), bv)
+        str(mas_cnt_without_rep[tuple(bv)]).ljust(4,' '), manually_added_samples_included_in_training[i], '  ', bv)
         i += 1
     print ('total trace lens:', total_trace_lens)
     print ('trace count:', trace_cnt)
@@ -222,7 +274,20 @@ def analyze_traces_suggest_repair(traces):
     for s in event_map:
         res += (str(event_map[s]) + ', ')
     print (res)
-    #print (tabulate(transposed_data))
+    print (tabulate(transposed_data))
+    print ('-'*75)
+    print ('(w/  repetition) suggested bv#'+str(max_index)+' to repair with',max_seen_cnt, 'repeitions:', str(chosen_bv).replace(' ',''))
+    i = 0
+    for header in readable_headers_list():
+        print (header.ljust(15,' '),' : ',chosen_bv[i])
+        i += 1
+    
+    print ('(w/o repetition) suggested bv#'+str(no_rep_max_index)+' to repair with',no_rep_max_seen_cnt, 'repeitions:', str(no_rep_chosen_bv).replace(' ',''))
+
+    i = 0
+    for header in readable_headers_list():
+        print (header.ljust(15,' '),' : ',no_rep_chosen_bv[i])
+        i += 1
 
 
 def generate_and_save_samples(args):
