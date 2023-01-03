@@ -13,7 +13,8 @@ import matplotlib.pyplot as plt
 import random
 
 from minigrid.core.constants import ACT_KEY_TO_IDX
-from dsl_minigrid import env_state_to_readable_str
+from tabulate import tabulate
+from dsl_minigrid import env_state_to_readable_str, readable_headers_list
 
 from verifier_minigrid import load_all_pickle, verify_action_selection_policy
 from demos_gen_minigrid import generate_demonstrations
@@ -153,7 +154,7 @@ def one_shot_learning(args):
             agent_view=args.agent_view,
             use_known_error_envs = False,
             verify_each_step_manually = False, 
-            cex_count = 5,
+            cex_count = 3,
         )
     print(f"{sats = }")
 
@@ -163,7 +164,65 @@ def one_shot_learning(args):
     
 
 def analyze_traces_suggest_repair(traces):
-    pass
+    manually_added_samples = [[False,False,False,False,False,True,False,False,True,False,True,True,False,False,False,False,False], \
+        [False,False,False,False,False,True,False,True,False,False,True,False,False,True,False,False,False],
+        [False,False,False,False,False,True,True,True,False,False,True,False,True,False,False,False,False],
+        [False,False,False,False,False,True,True,False,True,False,True,False,False,False,False,False,False],
+        [False,False,False,False,False,True,True,False,True,False,True,False,False,True,False,False,False],
+        [False,False,False,False,False,True,True,False,True,False,False,False,False,False,False,False,True],
+        [False,False,False,False,False,True,False,False,True,False,True,False,True,False,False,False,True],
+        [False,False,False,False,False,True,True,False,False,True,True,False,False,True,False,False,False],
+        [False,False,False,False,False,True,True,False,False,True,True,False,True,False,False,False,False]]
+    # a dictionary to keep track of number of occurences of the manually added samples with repetition per trace
+    mas_cnt_with_rep = {tuple(x):0 for x in manually_added_samples}
+    mas_cnt_without_rep = {tuple(x):0 for x in manually_added_samples}
+    total_trace_lens = 0
+    trace_cnt = 0
+
+    
+    event_map = dict() # number of each state occurence in the given traces
+    action_map = dict()
+    for trace in traces:
+        trace_cnt += 1
+        seen_bvs = set()
+        for env, bv, a in trace:
+            total_trace_lens += 1
+            if bv in mas_cnt_with_rep:
+                mas_cnt_with_rep[bv] = mas_cnt_with_rep[bv] + 1
+            if bv in event_map:
+                event_map[bv] = event_map[bv] + 1
+                action_map[bv].add(a)
+            else:
+                event_map[bv] = 1
+                action_map[bv] = set([a])
+            # check for repetitions
+            if bv in seen_bvs:
+                continue
+            else:
+                seen_bvs.add(bv)
+            # increment counter without reps
+            if bv in mas_cnt_without_rep:
+                mas_cnt_without_rep[bv] = mas_cnt_without_rep[bv] + 1
+
+    i = 0 
+    res = [['feature']  + ['action taken', 'number of occurences'] + readable_headers_list() ]
+    for s in event_map:
+        res.append(['event#'+str(i)] + list(action_map[s]) + [event_map[s]] + [x for x in s] )
+        i += 1
+    transposed_data = list(zip(*res))
+    print ('='*100)
+    i = 0
+    for bv in manually_added_samples:
+        print ('bv#'+str(i), str(mas_cnt_with_rep[tuple(bv)]).ljust(4,' '), 
+        str(mas_cnt_without_rep[tuple(bv)]).ljust(4,' '), bv)
+        i += 1
+    print ('total trace lens:', total_trace_lens)
+    print ('trace count:', trace_cnt)
+    res = ''
+    for s in event_map:
+        res += (str(event_map[s]) + ', ')
+    print (res)
+    #print (tabulate(transposed_data))
 
 
 def generate_and_save_samples(args):

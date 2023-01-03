@@ -129,6 +129,11 @@ def env_state_to_readable_str(env:MiniGridEnv):
     return res
 
 
+def readable_headers_list():
+    return [key.replace('env, ', '').replace('"','').replace('env.','').replace('get_nearest(','').replace('check(front_pos, ','in_front(').replace('is_','').replace('agent_','').replace('))',')').replace('agent_','').replace('agents_','') for key in feature_headers_DoorKey()]
+        
+
+
 def feature_headers_DoorKey() -> List[str]:
     headers = [
         'is_present(env, "goal")',
