@@ -24,7 +24,7 @@ def get_stem_and_loop(trace):
     hashes = [str(env) for env, _, _ in trace]
     for i, x in enumerate(hashes):
         try:
-            idx = hashes[i + 1 :].index(x) + i + 1
+            idx = hashes[i + 1:].index(x) + i + 1
             return trace[:i], trace[i:idx]
         except ValueError:
             continue
@@ -35,7 +35,8 @@ def train_and_save_model(positive_dict, negative_dict, extra_dict=None, seed=Non
     if extra_dict is None:
         assert set(positive_dict.keys()) & set(negative_dict.keys()) == set([])
         state_demos = pd.DataFrame(
-            [state for state in positive_dict] + [state for state in negative_dict]
+            [state for state in positive_dict] +
+            [state for state in negative_dict]
         )
         act_demos = pd.DataFrame(
             [positive_dict[state] for state in positive_dict]
@@ -84,7 +85,8 @@ def random_sampling_algorithm(positive_dict, trace):
     for _, obs, act in reversed(trace):
         if obs in positive_dict:
             continue
-        new_act = random.sample([a for a in ACT_KEY_TO_IDX.keys() if a != act], 1)
+        new_act = random.sample(
+            [a for a in ACT_KEY_TO_IDX.keys() if a != act], 1)
         return obs, new_act[0]
     return None, None
 
@@ -96,10 +98,10 @@ def random_loop_correction(positive_dict, trace):
     for _, obs, act in loop:
         if obs in positive_dict:
             continue
-        new_act = random.sample([a for a in ACT_KEY_TO_IDX.keys() if a != act], 1)
+        new_act = random.sample(
+            [a for a in ACT_KEY_TO_IDX.keys() if a != act], 1)
         return obs, new_act[0]
     return None, None
-
 
 
 def one_shot_learning(args):
@@ -122,66 +124,53 @@ def one_shot_learning(args):
             act_demos.append(line[-1])
             state_demos.append([eval(x) for x in line[:-1]])
 
-
     # train a BDT model based on the samples
-    aspmodel = tree.DecisionTreeClassifier(class_weight="balanced", random_state=args.tree_seed)
+    aspmodel = tree.DecisionTreeClassifier(
+        class_weight="balanced", random_state=args.tree_seed)
     bdt_model = aspmodel.fit(state_demos, act_demos)
     if show_tree:
         tree.plot_tree(
-                bdt_model,
-                max_depth=None,
-                class_names=sorted(set(act_demos)),
-                label="none",
-                precision=1,
-                feature_names=header_register[args.env_name],
-                rounded=True,
-                fontsize=5,
-                proportion=True,
-            )
+            bdt_model,
+            max_depth=None,
+            class_names=sorted(set(act_demos)),
+            label="none",
+            precision=1,
+            feature_names=header_register[args.env_name],
+            rounded=True,
+            fontsize=5,
+            proportion=True,
+        )
         plt.show()
 
     # verify the model and generate a number of counter-examples (verification consists of 100 random tests)
-    action_selection_policy = lambda env: action_selection_policy_decision_tree(env, bdt_model, feature_register[args.env_name])
+    def action_selection_policy(env): return action_selection_policy_decision_tree(
+        env, bdt_model, feature_register[args.env_name])
     sats, traces = verify_action_selection_policy(
-            args.env_name,
-            action_selection_policy,
-            feature_register[args.env_name],
-            seed=args.verifier_seed,
-            num_trials=args.num_trials,
-            timeout=args.timeout,
-            show_window=args.show_window,
-            tile_size=args.tile_size,
-            agent_view=args.agent_view,
-            use_known_error_envs = False,
-            verify_each_step_manually = False, 
-            cex_count = 10,
-        )
+        args.env_name,
+        action_selection_policy,
+        feature_register[args.env_name],
+        seed=args.verifier_seed,
+        num_trials=args.num_trials,
+        timeout=args.timeout,
+        show_window=args.show_window,
+        tile_size=args.tile_size,
+        agent_view=args.agent_view,
+        use_known_error_envs=False,
+        verify_each_step_manually=False,
+        cex_count=10,
+    )
     print(f"{sats = }")
 
     # suggest a (set of) new samples based on the counter-examples (try to automate the insights from above step)
-    if len(traces) > 0 :
-        repair = analyze_traces_suggest_repair(traces) 
-        print (repair)
+    if len(traces) > 0:
+        repair = analyze_traces_suggest_repair(traces)
+        print(repair)
     else:
-        print ('correct program is found')
-    
+        print('correct program is found')
+
 
 def analyze_traces_suggest_repair(traces):
-
-
-
-    #manually_added_samples = [[False,False,False,False,False,True,False,False,True,False,True,True,False,False,False,False,False], \
-    #    [False,False,False,False,False,True,False,True,False,False,True,False,False,True,False,False,False],
-    #    [False,False,False,False,False,True,True,True,False,False,True,False,True,False,False,False,False],
-    #    [False,False,False,False,False,True,True,False,True,False,True,False,False,False,False,False,False],
-    #    [False,False,False,False,False,True,True,False,True,False,True,False,False,True,False,False,False],
-    #    [False,False,False,False,False,True,True,False,True,False,False,False,False,False,False,False,True],
-    #    [False,False,False,False,False,True,False,False,True,False,True,False,True,False,False,False,True],
-    #    [False,False,False,False,False,True,True,False,False,True,True,False,False,True,False,False,False],
-    #    [False,False,False,False,False,True,True,False,False,True,True,False,True,False,False,False,False],
-    #    [False,False,False,False,False,True,True,False,True,False,True,False,True,False,False,False,False]]
-    
-    #load known samples from samples.csv file (this is only used for manual analysis)
+    # load known samples from samples.csv file (this is only used for manual analysis)
     manually_added_samples = []
     manually_added_samples_included_in_training = []
     with open('samples.csv', 'r') as read_obj:
@@ -192,23 +181,21 @@ def analyze_traces_suggest_repair(traces):
                 begin = True
                 continue
             if begin:
-                if '#' in line[0]:
-                    manually_added_samples_included_in_training.append('N')
-                else:
-                    manually_added_samples_included_in_training.append('Y')
-                manually_added_samples.append([eval(x.replace('#','')) for x in line[:-1]])    
+                sample = [eval(x.replace('#', '')) for x in line[:-1]]
+                if '#' not in line[0]:
+                    manually_added_samples_included_in_training.append(sample)
+                manually_added_samples.append(sample)
     #print (manually_added_samples)
     #raise Exception ('salam')
-    
+
     # a dictionary to keep track of number of occurences of the manually added samples with repetition per trace
-    mas_cnt_with_rep = {tuple(x):0 for x in manually_added_samples}
-    mas_cnt_without_rep = {tuple(x):0 for x in manually_added_samples}
+    mas_cnt_with_rep = {tuple(x): 0 for x in manually_added_samples}
+    mas_cnt_without_rep = {tuple(x): 0 for x in manually_added_samples}
     total_trace_lens = 0
     trace_cnt = 0
 
-    
-    event_map = dict() # number of each state occurence in the given traces
-    no_rep_event_map = dict() # number of each state occurence in the given traces
+    event_map = dict()  # number of each state occurence in the given traces
+    no_rep_event_map = dict()  # number of each state occurence in the given traces
 
     action_map = dict()
     for trace in traces:
@@ -236,8 +223,8 @@ def analyze_traces_suggest_repair(traces):
                 no_rep_event_map[bv] = no_rep_event_map[bv] + 1
             else:
                 no_rep_event_map[bv] = 1
-    # following vars are used to find the max with and without repetition 
-    i = 0 
+    # following vars are used to find the max with and without repetition
+    i = 0
     max_seen_cnt = -1
     max_index = -1
     chosen_bv = None
@@ -245,10 +232,15 @@ def analyze_traces_suggest_repair(traces):
     no_rep_chosen_bv = None
     no_rep_max_index = -1
 
-
-    res = [['feature']  + ['action taken', 'number w/ rep', 'number w/o rep'] + readable_headers_list() ]
+    res = [['feature'] + ['action taken', 'number w/ rep',
+                          'number w/o rep'] + readable_headers_list()]
     for s in event_map:
-        res.append(['bv#'+str(i)] + list(action_map[s]) + [event_map[s]] + [no_rep_event_map[s]]+ [str(x)[0] for x in s] )
+        res.append(['bv#'+str(i)] + list(action_map[s]) + [event_map[s]
+                                                           ] + [no_rep_event_map[s]] + [str(x)[0] for x in s])
+        # identify the most frequent new (not used in training) state with and without repetition
+        if s in [tuple(x) for x in manually_added_samples_included_in_training]:
+            i += 1
+            continue
         if event_map[s] > max_seen_cnt:
             max_seen_cnt = event_map[s]
             chosen_bv = s
@@ -261,32 +253,40 @@ def analyze_traces_suggest_repair(traces):
 
     transposed_data = list(zip(*res))
 
-
-    print ('*'*230)
+    print('*'*230)
     i = 0
     for bv in manually_added_samples:
-        print ('bv#'+str(i), str(mas_cnt_with_rep[tuple(bv)]).ljust(4,' '), 
-        str(mas_cnt_without_rep[tuple(bv)]).ljust(4,' '), manually_added_samples_included_in_training[i], '  ', bv)
+        print('sample#'+str(i), str(mas_cnt_with_rep[tuple(bv)]).ljust(4, ' '),
+              str(mas_cnt_without_rep[tuple(bv)]).ljust(4, ' '), str(bv in manually_added_samples_included_in_training).ljust(5, ' '), '  ', bv)
         i += 1
-    print ('total trace lens:', total_trace_lens)
-    print ('trace count:', trace_cnt)
+    print('total trace lens:', total_trace_lens)
+    print('trace count:', trace_cnt)
+    # print frequencies of states with repetition ordered
     res = ''
     for s in reversed(sorted(event_map.values())):
         res += (str(s) + ', ')
-    print ('ordered frequencies of states:', res)
-    print (tabulate(transposed_data))
-    print ('-'*75)
-    print ('(w/  repetition) suggested bv#'+str(max_index)+' to repair with',max_seen_cnt, 'repeitions:', str(chosen_bv).replace(' ',''))
+    print('ordered frequencies of states w/  rep:', res)
+    # print frequencies of states withOUT repetition ordered
+    res = ''
+    for s in reversed(sorted(no_rep_event_map.values())):
+        res += (str(s) + ', ')
+    print('ordered frequencies of states w/o rep:', res)
+    print(tabulate(transposed_data))
+    print('-'*75)
+    known_tuples = [tuple(x) for x in manually_added_samples]
+    print('(w/  repetition) suggested bv#'+str(max_index)+' to repair with', max_seen_cnt, 'repeitions:', str(chosen_bv).replace(' ',
+          ''), 'index in known set:', known_tuples.index(chosen_bv) if chosen_bv in known_tuples else -1)
     i = 0
     for header in readable_headers_list():
-        print (header.ljust(15,' '),' : ',chosen_bv[i])
+        print(header.ljust(15, ' '), ' : ', chosen_bv[i])
         i += 1
-    
-    print ('(w/o repetition) suggested bv#'+str(no_rep_max_index)+' to repair with',no_rep_max_seen_cnt, 'repeitions:', str(no_rep_chosen_bv).replace(' ',''))
+
+    print('(w/o repetition) suggested bv#'+str(no_rep_max_index)+' to repair with', no_rep_max_seen_cnt, 'repeitions:', str(no_rep_chosen_bv).replace(' ',
+          ''), 'index in known set:', known_tuples.index(no_rep_chosen_bv) if no_rep_chosen_bv in known_tuples else -1)
 
     i = 0
     for header in readable_headers_list():
-        print (header.ljust(15,' '),' : ',no_rep_chosen_bv[i])
+        print(header.ljust(15, ' '), ' : ', no_rep_chosen_bv[i])
         i += 1
 
 
@@ -305,7 +305,7 @@ def generate_and_save_samples(args):
         agent_view=args.agent_view,
     )
     samples = []
-    for _,fv,a in positive_demos:
+    for _, fv, a in positive_demos:
         sample = [x for x in fv]+[str(a)]
         if sample not in samples:
             samples.append(sample)
@@ -313,10 +313,6 @@ def generate_and_save_samples(args):
     with open("samples.csv", "w", newline="") as f:
         writer = csv.writer(f)
         writer.writerows(samples)
-
-
-
-
 
 
 if __name__ == "__main__":
@@ -399,8 +395,6 @@ if __name__ == "__main__":
     one_shot_learning(args=args)
     raise Exception('EXIT')
 
-
-
     num_demos = 1 if args.num_demos == 0 else args.num_demos
     positive_demos = generate_demonstrations(
         args.env_name,
@@ -423,9 +417,11 @@ if __name__ == "__main__":
     epoch = 0
     while not sat:
         print(f"{epoch = }")
-        aspmodel = train_and_save_model(positive_dict, negative_dict, seed=args.tree_seed)
+        aspmodel = train_and_save_model(
+            positive_dict, negative_dict, seed=args.tree_seed)
 
-        action_selection_policy = lambda env: action_selection_policy_decision_tree(env, aspmodel, feature_register[args.env_name])
+        def action_selection_policy(env): return action_selection_policy_decision_tree(
+            env, aspmodel, feature_register[args.env_name])
         sat, trace = verify_action_selection_policy(
             args.env_name,
             action_selection_policy,
@@ -452,7 +448,8 @@ if __name__ == "__main__":
         tree.plot_tree(
             aspmodel,
             max_depth=None,
-            class_names=sorted(set(positive_dict.values()) | set(negative_dict.values())),
+            class_names=sorted(set(positive_dict.values()) |
+                               set(negative_dict.values())),
             label="none",
             precision=1,
             feature_names=header_register[args.env_name],
