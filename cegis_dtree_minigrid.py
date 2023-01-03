@@ -262,7 +262,7 @@ def analyze_traces_suggest_repair(traces):
     transposed_data = list(zip(*res))
 
 
-    print ('#'*200)
+    print ('*'*230)
     i = 0
     for bv in manually_added_samples:
         print ('bv#'+str(i), str(mas_cnt_with_rep[tuple(bv)]).ljust(4,' '), 
@@ -271,9 +271,9 @@ def analyze_traces_suggest_repair(traces):
     print ('total trace lens:', total_trace_lens)
     print ('trace count:', trace_cnt)
     res = ''
-    for s in event_map:
-        res += (str(event_map[s]) + ', ')
-    print (res)
+    for s in reversed(sorted(event_map.values())):
+        res += (str(s) + ', ')
+    print ('ordered frequencies of states:', res)
     print (tabulate(transposed_data))
     print ('-'*75)
     print ('(w/  repetition) suggested bv#'+str(max_index)+' to repair with',max_seen_cnt, 'repeitions:', str(chosen_bv).replace(' ',''))
