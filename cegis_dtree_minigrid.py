@@ -149,7 +149,7 @@ def one_shot_learning(args):
         env, bdt_model, feature_register[args.env_name])
 
     # verify the learned ASP. Attempt to generate number_of_counter_examples many counter-examples and return them all. If a verification attempt is successful, i.e. no counter-examples are found, then return whatever counter-examples generated so far. If the first attempt is successful then we consider this ASP as fully verified. This can later change.
-    sats, traces, total_epochs = verify_action_selection_policy(
+    sats, traces, epoch_score = verify_action_selection_policy(
         args.env_name,
         action_selection_policy,
         feature_register[args.env_name],
@@ -168,7 +168,7 @@ def one_shot_learning(args):
     # suggest a (set of) new samples based on the counter-examples (try to automate the insights from above step)
     if len(traces) > 0:
         # calculate the epoch score as the average number of epochs before a counter-example was found
-        analyze_traces_suggest_repair(traces, total_epochs*1.0/len(traces))
+        analyze_traces_suggest_repair(traces, epoch_score)
     else: # first attempt to verification was successful and no counter-example was found
         print('correct program is found')
 
@@ -177,6 +177,7 @@ def analyze_traces_suggest_repair(traces, epoch_score):
     # load known samples from samples.csv file (this is only used for manual analysis)
     # includes all samples (added manually not from demo) that are in the samples.csv file. Only samples which do not start with # are used for training
     manually_added_samples = []
+    manually_added_actions = []
     # includes only samples that are actually used for training (samples starting with # are not used for training and are there simply for studying purposes)
     manually_added_samples_included_in_training = []
     with open('samples.csv', 'r') as read_obj:
@@ -191,6 +192,7 @@ def analyze_traces_suggest_repair(traces, epoch_score):
                 if '#' not in line[0]:
                     manually_added_samples_included_in_training.append(sample)
                 manually_added_samples.append(sample)
+                manually_added_actions.append(line[-1])
 
     # a dictionary to keep track of number of occurences of the manually added samples with repetition per trace
     # this dictionary shall contain the visited states (bv) as keys and the number of occurences as the value. Repetitions within each trace are counted
@@ -237,16 +239,17 @@ def analyze_traces_suggest_repair(traces, epoch_score):
     for s in event_map:
         res.append(['bv#'+str(i)] + list(action_map[s]) + [event_map[s]
                                                            ] + [no_rep_event_map[s]] + [str(x)[0] for x in s])
-        i += 1
+        
         # identify the most frequent new (not used in training) state with and without repetition
         # we do not consider existing samples used for training to be picked for repair (i.e., we never roll back)
         if s in [tuple(x) for x in manually_added_samples_included_in_training]:
+            i += 1
             continue
         if event_map[s] > max_seen_cnt:
             max_seen_cnt, max_index, chosen_bv = event_map[s], i, s
         if no_rep_event_map[s] > no_rep_max_seen_cnt:
-            no_rep_max_seen_cnt, no_rep_max_index, no_rep_chosen_bv = no_rep_event_map[
-                s], i, s
+            no_rep_max_seen_cnt, no_rep_max_index, no_rep_chosen_bv = no_rep_event_map[s], i, s
+        i += 1
     transposed_data = list(zip(*res))
 
     print('\n\n\n')
@@ -259,7 +262,7 @@ def analyze_traces_suggest_repair(traces, epoch_score):
     i = 0
     for bv in manually_added_samples:
         print(('sample#'+str(i)).ljust(10), str(mas_cnt_with_rep[tuple(bv)]).ljust(4, ' '),
-              str(mas_cnt_without_rep[tuple(bv)]).ljust(4, ' '), str(bv in manually_added_samples_included_in_training).ljust(5, ' '), '  ', bv)
+              str(mas_cnt_without_rep[tuple(bv)]).ljust(4, ' '), str(bv in manually_added_samples_included_in_training).ljust(5, ' '), '  ',  str(manually_added_actions[i]).ljust(5, ' '), '  ',bv)
         i += 1
     print('')
 
@@ -301,11 +304,56 @@ def analyze_traces_suggest_repair(traces, epoch_score):
           str(no_rep_max_seen_cnt).ljust(3, ' '), 'repeitions:', str(no_rep_chosen_bv).replace(' ', ''))
     print('(w/o repetition) index in known set:', known_tuples.index(no_rep_chosen_bv)
           if no_rep_chosen_bv in known_tuples else -1)
+    print ('(w/o repetition) label epoch scores:')
+    get_candidate_label_scores(args=args, new_sample_state=no_rep_chosen_bv, test_cnt=30) #XXX 30 is hardcoded for now. make it a passed parameter # TODO
+    
+    #for label in label_scores:
+    #    print ('                                        - '+label, label_scores[label])
     print('\n\n')
 
+
+def get_candidate_label_scores(args, new_sample_state, test_cnt):
+    label_scores = {'left':-1, 'right':-1, 'up':-1, 'pageup':-1}
+    for label in label_scores:
+        state_demos = []
+        act_demos = []
+        with open('samples.csv', 'r') as read_obj:
+            csv_reader = csv.reader(read_obj)
+            for line in csv_reader:
+                if '#' in line[0]:  # skip this sample since it is commented out
+                    continue
+                act_demos.append(line[-1])
+                state_demos.append([eval(x) for x in line[:-1]])
+        # add the new candidate sample to the training set
+        state_demos.append(new_sample_state)
+        act_demos.append(label)
+        # train a BDT model based on the samples
+        aspmodel = tree.DecisionTreeClassifier(class_weight="balanced", random_state=args.tree_seed)
+        bdt_model = aspmodel.fit(state_demos, act_demos)
+        def action_selection_policy(env): return action_selection_policy_decision_tree(env, bdt_model, feature_register[args.env_name])
+        _, _, epoch_score = verify_action_selection_policy(
+            args.env_name,
+            action_selection_policy,
+            feature_register[args.env_name],
+            seed=args.verifier_seed,
+            num_trials=args.num_trials,
+            timeout=args.timeout,
+            show_window=args.show_window,
+            tile_size=args.tile_size,
+            agent_view=args.agent_view,
+            use_known_error_envs=False,
+            verify_each_step_manually=False,
+            cex_count=test_cnt,
+            mute = True
+        )
+        label_scores[label] = epoch_score
+        print ('    -'+label+": "+str(epoch_score))
+    return label_scores
+
+
+
+
 # This function needs to be called only once to generate a set of positive traces and store their state/action pairs in samples.csv file
-
-
 def generate_and_save_samples(args):
     num_demos = 1 if args.num_demos == 0 else args.num_demos
     positive_demos = generate_demonstrations(

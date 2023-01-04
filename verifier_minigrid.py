@@ -33,7 +33,8 @@ class Verifier:
         show_window: bool = False,
         agent_view: bool = False,
         epoch : int = -1,
-        verify_each_step_manually: bool = False
+        verify_each_step_manually: bool = False,
+        mute:bool = False,
     ) -> None:
         self.env = env
         self.action_selection_policy = action_selection_policy
@@ -47,6 +48,7 @@ class Verifier:
         self.result = (True, None)
         self.step_cnt = 0
         self.epoch = epoch
+        self.mute = mute
         self.verify_each_step_manually = verify_each_step_manually
 
         self.fix_start_env = fix_start_env
@@ -60,7 +62,8 @@ class Verifier:
             self.agent_view = agent_view
 
     def start(self):
-        print ('Running test 0', end = ' ')
+        if not self.mute:
+            print ('Running test 0', end = ' ')
         if not self.fix_start_env:
             self.reset(self.seed)
         self.redraw()
@@ -82,7 +85,8 @@ class Verifier:
             self.window.set_caption( 'Epoch#' + str(self.epoch)+'   Trial#' + str(self.trials) + '   Step#'+ str(self.step_cnt) + '   ' +  str(action).replace('s.',':'))
         self.step_cnt = self.step_cnt + 1
         if truncated:
-            print ('\nCEx found at attempt '+str(self.trials))
+            if not self.mute:
+                print ('\nCEx found at attempt '+str(self.trials))
             #print(f"timeout!")
             #print(f"CEx at: {self.trials = } out of {self.num_trials = }")
             self.result = (False, self.demonstration)
@@ -90,13 +94,16 @@ class Verifier:
             return False  ## Remove this if we dont want timeout based Counter Examples
             # self.reset(self.seed) ## Add this if we dont want timeout based Counter Examples
         if terminated and reward < 0:
-            print(f"violation of property!")
+            if not self.mute:
+                print(f"violation of property!")
             self.result = (False, self.demonstration)
             self.done = True
-            print(f"CEx at: {self.trials = } out of {self.num_trials = }")
+            if not self.mute:
+                print(f"CEx at: {self.trials = } out of {self.num_trials = }")
             return False
         if terminated:
-            print (str(self.trials), end=' ')
+            if not self.mute:
+                print (str(self.trials), end=' ')
             self.reset(self.seed)
             self.done = True
         return True
@@ -152,6 +159,7 @@ def verify_action_selection_policy(
     use_known_error_envs=False,
     verify_each_step_manually = False,
     cex_count = 1,
+    mute: bool = False
 ):
     total_epochs = 0
     env: MiniGridEnv = gym.make(env_name, tile_size=tile_size, max_steps=timeout)
@@ -183,7 +191,8 @@ def verify_action_selection_policy(
     sats = []
     traces = []
     for iter in range(cex_count):
-        print ('\nLooking for CEx #'+str(iter))
+        if not mute:
+            print ('\nLooking for CEx #'+str(iter))
         verifier = Verifier(
             env,
             action_selection_policy,
@@ -194,7 +203,8 @@ def verify_action_selection_policy(
             show_window=show_window,
             agent_view=agent_view,
             epoch=epoch,
-            verify_each_step_manually = verify_each_step_manually
+            verify_each_step_manually = verify_each_step_manually,
+            mute = mute
         )
         sat, trace, epochs = verifier.start()
         sats.append(sat)
@@ -203,7 +213,7 @@ def verify_action_selection_policy(
             traces.append(trace)
         else:
             break # once a sat case is found do not continue
-    return sats, traces, total_epochs
+    return sats, traces, total_epochs*1.0/len(traces)
 
 
 def verify_action_selection_policy_on_env(
