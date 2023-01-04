@@ -60,6 +60,7 @@ class Verifier:
             self.agent_view = agent_view
 
     def start(self):
+        print ('Running test 0', end = ' ')
         if not self.fix_start_env:
             self.reset(self.seed)
         self.redraw()
@@ -67,7 +68,7 @@ class Verifier:
             self.redraw()
             if self.fix_start_env and self.done:
                 break
-        return self.result
+        return [x for x in self.result] + [self.trials]
 
     def redraw(self):
         if self.show_window:
@@ -81,8 +82,9 @@ class Verifier:
             self.window.set_caption( 'Epoch#' + str(self.epoch)+'   Trial#' + str(self.trials) + '   Step#'+ str(self.step_cnt) + '   ' +  str(action).replace('s.',':'))
         self.step_cnt = self.step_cnt + 1
         if truncated:
-            print(f"timeout!")
-            print(f"CEx at: {self.trials = } out of {self.num_trials = }")
+            print ('\nCEx found at attempt '+str(self.trials))
+            #print(f"timeout!")
+            #print(f"CEx at: {self.trials = } out of {self.num_trials = }")
             self.result = (False, self.demonstration)
             self.done = True
             return False  ## Remove this if we dont want timeout based Counter Examples
@@ -94,7 +96,7 @@ class Verifier:
             print(f"CEx at: {self.trials = } out of {self.num_trials = }")
             return False
         if terminated:
-            print ('running a new test')
+            print (str(self.trials), end=' ')
             self.reset(self.seed)
             self.done = True
         return True
@@ -120,15 +122,16 @@ class Verifier:
             "enter": MiniGridEnv.Actions.done,
         }
         action = key_to_action[key]
-
-        print (env_state_to_readable_str(self.env))
-        print (str(extract_features_DoorKey(self.env)).replace('(','').replace(')','').replace(' ',''))
-        # wait for the user's approval for this step -- this is used to observe the behaviors of the ASP
-        if self.verify_each_step_manually:
-            input(str(action))
-        else:
-            print (str(action))
-        print (' ')
+        print_data = False
+        if print_data:
+            print (env_state_to_readable_str(self.env))
+            print (str(extract_features_DoorKey(self.env)).replace('(','').replace(')','').replace(' ',''))
+            # wait for the user's approval for this step -- this is used to observe the behaviors of the ASP
+            if self.verify_each_step_manually:
+                input(str(action))
+            else:
+                print (str(action))
+            print (' ')
 
 
         
@@ -150,6 +153,7 @@ def verify_action_selection_policy(
     verify_each_step_manually = False,
     cex_count = 1,
 ):
+    total_epochs = 0
     env: MiniGridEnv = gym.make(env_name, tile_size=tile_size, max_steps=timeout)
     if agent_view:
         env = RGBImgPartialObsWrapper(env, tile_size)
@@ -179,7 +183,7 @@ def verify_action_selection_policy(
     sats = []
     traces = []
     for iter in range(cex_count):
-        print ('generating counter example number', iter)
+        print ('\nLooking for CEx #'+str(iter))
         verifier = Verifier(
             env,
             action_selection_policy,
@@ -192,13 +196,14 @@ def verify_action_selection_policy(
             epoch=epoch,
             verify_each_step_manually = verify_each_step_manually
         )
-        sat, trace = verifier.start()
+        sat, trace, epochs = verifier.start()
         sats.append(sat)
         if not sat:
+            total_epochs += epochs
             traces.append(trace)
         else:
             break # once a sat case is found do not continue
-    return sats, traces
+    return sats, traces, total_epochs
 
 
 def verify_action_selection_policy_on_env(

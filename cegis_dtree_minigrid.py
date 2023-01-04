@@ -107,6 +107,8 @@ def random_loop_correction(positive_dict, trace):
 def one_shot_learning(args):
     # init variabales
     show_tree = False
+    # how mnay attempts for finindg counter-examples? this is the size of the set of counter-examples returned for analysis
+    number_of_counter_examples = 10
 
     # run demonstrations from the ground truth and save them to samples.csv file -- need not be called all the time
     # generate_and_save_samples(args)
@@ -118,7 +120,7 @@ def one_shot_learning(args):
     with open('samples.csv', 'r') as read_obj:
         csv_reader = csv.reader(read_obj)
         for line in csv_reader:
-            if '#' in line[0]:
+            if '#' in line[0]:  # skip this sample since it is commented out
                 continue
             samples.append(line)
             act_demos.append(line[-1])
@@ -145,7 +147,9 @@ def one_shot_learning(args):
     # verify the model and generate a number of counter-examples (verification consists of 100 random tests)
     def action_selection_policy(env): return action_selection_policy_decision_tree(
         env, bdt_model, feature_register[args.env_name])
-    sats, traces = verify_action_selection_policy(
+
+    # verify the learned ASP. Attempt to generate number_of_counter_examples many counter-examples and return them all. If a verification attempt is successful, i.e. no counter-examples are found, then return whatever counter-examples generated so far. If the first attempt is successful then we consider this ASP as fully verified. This can later change.
+    sats, traces, total_epochs = verify_action_selection_policy(
         args.env_name,
         action_selection_policy,
         feature_register[args.env_name],
@@ -157,21 +161,23 @@ def one_shot_learning(args):
         agent_view=args.agent_view,
         use_known_error_envs=False,
         verify_each_step_manually=False,
-        cex_count=10,
+        cex_count=number_of_counter_examples,
     )
     print(f"{sats = }")
 
     # suggest a (set of) new samples based on the counter-examples (try to automate the insights from above step)
     if len(traces) > 0:
-        repair = analyze_traces_suggest_repair(traces)
-        print(repair)
-    else:
+        # calculate the epoch score as the average number of epochs before a counter-example was found
+        analyze_traces_suggest_repair(traces, total_epochs*1.0/len(traces))
+    else: # first attempt to verification was successful and no counter-example was found
         print('correct program is found')
 
 
-def analyze_traces_suggest_repair(traces):
+def analyze_traces_suggest_repair(traces, epoch_score):
     # load known samples from samples.csv file (this is only used for manual analysis)
+    # includes all samples (added manually not from demo) that are in the samples.csv file. Only samples which do not start with # are used for training
     manually_added_samples = []
+    # includes only samples that are actually used for training (samples starting with # are not used for training and are there simply for studying purposes)
     manually_added_samples_included_in_training = []
     with open('samples.csv', 'r') as read_obj:
         csv_reader = csv.reader(read_obj)
@@ -179,29 +185,27 @@ def analyze_traces_suggest_repair(traces):
         for line in csv_reader:
             if '# begin samples from manual inspection of counter-examples' in line[0]:
                 begin = True
-                continue
-            if begin:
+                continue  # ignore samples from the demo
+            if begin:  # samples from the demo are over and now we can read and store samples which are added manually
                 sample = [eval(x.replace('#', '')) for x in line[:-1]]
                 if '#' not in line[0]:
                     manually_added_samples_included_in_training.append(sample)
                 manually_added_samples.append(sample)
-    #print (manually_added_samples)
-    #raise Exception ('salam')
 
     # a dictionary to keep track of number of occurences of the manually added samples with repetition per trace
+    # this dictionary shall contain the visited states (bv) as keys and the number of occurences as the value. Repetitions within each trace are counted
     mas_cnt_with_rep = {tuple(x): 0 for x in manually_added_samples}
+    # similar to the above dictionary, however, this one counts at most 1 occurence of each state within a trace.
     mas_cnt_without_rep = {tuple(x): 0 for x in manually_added_samples}
     total_trace_lens = 0
     trace_cnt = 0
-
     event_map = dict()  # number of each state occurence in the given traces
     no_rep_event_map = dict()  # number of each state occurence in the given traces
-
     action_map = dict()
-    for trace in traces:
+    for trace in traces:  # walk through traces
         trace_cnt += 1
         seen_bvs = set()
-        for env, bv, a in trace:
+        for env, bv, a in trace:  # walk through each trace
             total_trace_lens += 1
             if bv in mas_cnt_with_rep:
                 mas_cnt_with_rep[bv] = mas_cnt_with_rep[bv] + 1
@@ -223,71 +227,83 @@ def analyze_traces_suggest_repair(traces):
                 no_rep_event_map[bv] = no_rep_event_map[bv] + 1
             else:
                 no_rep_event_map[bv] = 1
-    # following vars are used to find the max with and without repetition
-    i = 0
-    max_seen_cnt = -1
-    max_index = -1
-    chosen_bv = None
-    no_rep_max_seen_cnt = -1
-    no_rep_chosen_bv = None
-    no_rep_max_index = -1
 
-    res = [['feature'] + ['action taken', 'number w/ rep',
-                          'number w/o rep'] + readable_headers_list()]
+    # following vars are used to find the max with and without repetition
+    max_seen_cnt, max_index, chosen_bv = -1, -1, None
+    no_rep_max_seen_cnt, no_rep_max_index, no_rep_chosen_bv = -1, -1, None
+    res = [['feature'] + ['action taken', 'number w/ rep', 'number w/o rep'] +
+           readable_headers_list()]  # this will bused later to print in tabular format
+    i = -1
     for s in event_map:
         res.append(['bv#'+str(i)] + list(action_map[s]) + [event_map[s]
                                                            ] + [no_rep_event_map[s]] + [str(x)[0] for x in s])
+        i += 1
         # identify the most frequent new (not used in training) state with and without repetition
+        # we do not consider existing samples used for training to be picked for repair (i.e., we never roll back)
         if s in [tuple(x) for x in manually_added_samples_included_in_training]:
-            i += 1
             continue
         if event_map[s] > max_seen_cnt:
-            max_seen_cnt = event_map[s]
-            chosen_bv = s
-            max_index = i
+            max_seen_cnt, max_index, chosen_bv = event_map[s], i, s
         if no_rep_event_map[s] > no_rep_max_seen_cnt:
-            no_rep_max_seen_cnt = no_rep_event_map[s]
-            no_rep_chosen_bv = s
-            no_rep_max_index = i
-        i += 1
-
+            no_rep_max_seen_cnt, no_rep_max_index, no_rep_chosen_bv = no_rep_event_map[
+                s], i, s
     transposed_data = list(zip(*res))
 
-    print('*'*230)
+    print('\n\n\n')
+    print('='*200)
+    print('Analytics')
+    print('='*200)
+    print('\n')
+    print('Known States (only for analytics):')
+    print('----------------------------------')
     i = 0
     for bv in manually_added_samples:
-        print('sample#'+str(i), str(mas_cnt_with_rep[tuple(bv)]).ljust(4, ' '),
+        print(('sample#'+str(i)).ljust(10), str(mas_cnt_with_rep[tuple(bv)]).ljust(4, ' '),
               str(mas_cnt_without_rep[tuple(bv)]).ljust(4, ' '), str(bv in manually_added_samples_included_in_training).ljust(5, ' '), '  ', bv)
         i += 1
-    print('total trace lens:', total_trace_lens)
-    print('trace count:', trace_cnt)
-    # print frequencies of states with repetition ordered
+    print('')
+
+    # print details about the given set of traces
+    print('Trace Analytics:')
+    print('----------------')
+    print('* total len:   ', total_trace_lens)
+    print('* trace count: ', trace_cnt)
+    # epoch score = in total, how many attempts were made to find the given counter-examples? The higher score means it was harder for the model checker to find counter-examples, i.e. the quality of the ASP was higher
+    print('* epoch score: ', epoch_score)
+    print()
+
+    # print a summary of states encountered on traces and the frequency of each state in a table
+    print('Observed States in Traces:')
+    print('--------------------------')
+    print(tabulate(transposed_data))
+    print('-'*185)
+
+    # print repair suggestions
+    print('Repair Suggestions:')
+    print('-------------------')
+    known_tuples = [tuple(x) for x in manually_added_samples]
+    # print ordered frequencies of states with repetition
     res = ''
     for s in reversed(sorted(event_map.values())):
         res += (str(s) + ', ')
-    print('ordered frequencies of states w/  rep:', res)
-    # print frequencies of states withOUT repetition ordered
+    print('(w/  repetition) ordered frequencies:', res)
+    print('(w/  repetition) suggested bv#'+str(max_index)+' to repair with',
+          max_seen_cnt, 'repeitions:', str(chosen_bv).replace(' ', ''))
+    print('(w/  repetition) index in known set:',
+          known_tuples.index(chosen_bv) if chosen_bv in known_tuples else -1)
+    print()
+    # print ordered frequencies of states WITHOUT repetition
     res = ''
     for s in reversed(sorted(no_rep_event_map.values())):
         res += (str(s) + ', ')
-    print('ordered frequencies of states w/o rep:', res)
-    print(tabulate(transposed_data))
-    print('-'*75)
-    known_tuples = [tuple(x) for x in manually_added_samples]
-    print('(w/  repetition) suggested bv#'+str(max_index)+' to repair with', max_seen_cnt, 'repeitions:', str(chosen_bv).replace(' ',
-          ''), 'index in known set:', known_tuples.index(chosen_bv) if chosen_bv in known_tuples else -1)
-    i = 0
-    for header in readable_headers_list():
-        print(header.ljust(15, ' '), ' : ', chosen_bv[i])
-        i += 1
+    print('(w/o repetition) ordered frequencies:', res)
+    print('(w/o repetition) suggested bv#'+str(no_rep_max_index)+' to repair with',
+          str(no_rep_max_seen_cnt).ljust(3, ' '), 'repeitions:', str(no_rep_chosen_bv).replace(' ', ''))
+    print('(w/o repetition) index in known set:', known_tuples.index(no_rep_chosen_bv)
+          if no_rep_chosen_bv in known_tuples else -1)
+    print('\n\n')
 
-    print('(w/o repetition) suggested bv#'+str(no_rep_max_index)+' to repair with', no_rep_max_seen_cnt, 'repeitions:', str(no_rep_chosen_bv).replace(' ',
-          ''), 'index in known set:', known_tuples.index(no_rep_chosen_bv) if no_rep_chosen_bv in known_tuples else -1)
-
-    i = 0
-    for header in readable_headers_list():
-        print(header.ljust(15, ' '), ' : ', no_rep_chosen_bv[i])
-        i += 1
+# This function needs to be called only once to generate a set of positive traces and store their state/action pairs in samples.csv file
 
 
 def generate_and_save_samples(args):
@@ -304,12 +320,15 @@ def generate_and_save_samples(args):
         tile_size=args.tile_size,
         agent_view=args.agent_view,
     )
+
+    # eliminate duplicates
     samples = []
     for _, fv, a in positive_demos:
-        sample = [x for x in fv]+[str(a)]
+        sample = [x for x in fv]+[str(a)]  # append states and actions
         if sample not in samples:
             samples.append(sample)
 
+    # dump the generated samples into a file
     with open("samples.csv", "w", newline="") as f:
         writer = csv.writer(f)
         writer.writerows(samples)
