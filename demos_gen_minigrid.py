@@ -43,16 +43,19 @@ class DemosGen:
 
     def start(self):
         self.reset(self.seed)
+        if self.show_window:
+            self.window.show(block=False)
         self.redraw()
         while self.step_using_asp() and self.demos <= self.num_demos:
             self.redraw()
+        if self.show_window:
+            self.window.close()
         return self.result
 
     def redraw(self):
         if self.show_window:
             frame = self.env.get_frame(agent_pov=self.agent_view)
             self.window.show_img(frame)
-            self.window.show(block=False)
 
     def add_demo(self):
         if not self.select_partial_demos:

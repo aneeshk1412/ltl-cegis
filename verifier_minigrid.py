@@ -58,18 +58,21 @@ class Verifier:
     def start(self):
         if not self.fix_start_env:
             self.reset(self.seed)
+        if self.show_window:
+            self.window.show(block=False)
         self.redraw()
         while self.step_using_asp() and self.trials <= self.num_trials:
             self.redraw()
             if self.fix_start_env and self.done:
                 break
+        if self.show_window:
+            self.window.close()
         return self.result
 
     def redraw(self):
         if self.show_window:
             frame = self.env.get_frame(agent_pov=self.agent_view)
             self.window.show_img(frame)
-            self.window.show(block=False)
 
     def step(self, action: MiniGridEnv.Actions):
         _, reward, terminated, truncated, _ = self.env.step(action)
