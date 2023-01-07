@@ -59,7 +59,7 @@ def check(env: MiniGridEnv, pos: Tuple[int, ...], obj: str):
     return c.type == obj
 
 def is_agent_facing(env: MiniGridEnv, pos: Tuple[int, ...]):
-    if pos is None:
+    if not pos:
         return False
     return dot(DIR_TO_VEC[env.agent_dir], sub(pos, env.agent_pos)) > 0
 
@@ -127,23 +127,6 @@ def feature_headers_DoorKey() -> List[str]:
         'check(env, env.front_pos, "wall")',
     ]
     return headers
-
-
-def env_state_to_readable_str(env:MiniGridEnv):
-    res = ''
-    i = 0
-    indent = '  '
-    vals = extract_features_DoorKey(env)
-    for key in feature_headers_DoorKey():
-        key = key.replace('env, ', '').replace('"','').replace('env.','').replace('get_nearest(','').replace('check(front_pos, ','in_front(').replace('is_','').replace('agent_','').replace('))',')').replace('agent_','').replace('agents_','')
-        res += indent
-        res += ('F'+str(i)+":").ljust(5,' ')
-        res += (key+':').ljust(17,' ')
-        res += str(vals[i])
-        res += '\n'
-        i+=1
-    return res
-
 
 feature_register = {
     "MiniGrid-DoorKey-16x16-v0": extract_features_DoorKey,
