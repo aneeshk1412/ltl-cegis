@@ -10,14 +10,16 @@ from collections import deque
 def sign(v):
     return v // abs(v) if v != 0 else 0
 
-
 def dot(u, v):
+    # basically |u||v| cos(theta)
     return sum(ui * vi for ui, vi in zip(u, v))
 
+def cross(u, v):
+    # basically |u||v| sin(theta)
+    return u[0] * v[1] - u[1] * v[0]
 
 def sub(u, v):
     return tuple(ui - vi for ui, vi in zip(u, v))
-
 
 def bfs(env: MiniGridEnv, obj: str):
     q = deque()
@@ -36,21 +38,17 @@ def bfs(env: MiniGridEnv, obj: str):
             return True, x
     return False, None
 
-
 ##
 #   DSL Terms and Functions
 ##
-
 
 def is_present(env: MiniGridEnv, obj: str):
     b, _ = bfs(env, obj)
     return b
 
-
 def get_nearest(env: MiniGridEnv, obj: str):
     _, obj_pos = bfs(env, obj)
     return obj_pos
-
 
 def check(env: MiniGridEnv, pos: Tuple[int, ...], obj: str):
     c = env.grid.get(*pos)
@@ -60,31 +58,24 @@ def check(env: MiniGridEnv, pos: Tuple[int, ...], obj: str):
         return False
     return c.type == obj
 
-
 def is_agent_facing(env: MiniGridEnv, pos: Tuple[int, ...]):
     if pos is None:
         return False
-    return dot(sub(pos, env.agent_pos), DIR_TO_VEC[env.agent_dir]) > 0
+    return dot(DIR_TO_VEC[env.agent_dir], sub(pos, env.agent_pos)) > 0
 
 def is_at_agents_left(env: MiniGridEnv, pos: Tuple[int, ...]):
     if not pos:
         return False
-    diff_vec = sub(pos, env.agent_pos)
-    dir_vec = DIR_TO_VEC[env.agent_dir]
-    return ( diff_vec[1]*dir_vec[0] < 0) or ( diff_vec[0]*dir_vec[1] > 0)
+    return cross(DIR_TO_VEC[env.agent_dir], sub(pos, env.agent_pos)) < 0
 
 def is_at_agents_right(env: MiniGridEnv, pos: Tuple[int, ...]):
     if not pos:
         return False
-    diff_vec = sub(pos, env.agent_pos)
-    dir_vec = DIR_TO_VEC[env.agent_dir]
-    return (diff_vec[1]*dir_vec[0] > 0) or (diff_vec[0]*dir_vec[1] < 0)
-
+    return cross(DIR_TO_VEC[env.agent_dir], sub(pos, env.agent_pos)) > 0
 
 ##
 #   Features for Decision Trees
 ##
-
 
 def extract_features_DoorKey(env: MiniGridEnv) -> Tuple[bool, ...]:
     features = (
@@ -112,23 +103,6 @@ def extract_features_DoorKey(env: MiniGridEnv) -> Tuple[bool, ...]:
     return features
 
 
-
-def env_state_to_readable_str(env:MiniGridEnv):
-    res = ''
-    i = 0 
-    indent = '  '
-    vals = extract_features_DoorKey(env)
-    for key in feature_headers_DoorKey():
-        key = key.replace('env, ', '').replace('"','').replace('env.','').replace('get_nearest(','').replace('check(front_pos, ','in_front(').replace('is_','').replace('agent_','').replace('))',')').replace('agent_','').replace('agents_','')
-        res += indent
-        res += ('F'+str(i)+":").ljust(5,' ')
-        res += (key+':').ljust(17,' ')
-        res += str(vals[i])
-        res += '\n'
-        i+=1
-    return res
-
-
 def feature_headers_DoorKey() -> List[str]:
     headers = [
         'is_present(env, "goal")',
@@ -142,17 +116,33 @@ def feature_headers_DoorKey() -> List[str]:
         'is_at_agents_left(env, get_nearest(env, "door"))',
         'is_at_agents_right(env, get_nearest(env, "door"))',
         'check(env, env.front_pos, "door")',
-        
+
         'is_present(env, "key")',
         'is_agent_facing(env, get_nearest(env, "key"))',
         'is_at_agents_left(env, get_nearest(env, "key"))',
         'is_at_agents_right(env, get_nearest(env, "key"))',
         'check(env, env.front_pos, "key")',
-        
+
         'check(env, env.front_pos, "empty")',
         'check(env, env.front_pos, "wall")',
     ]
     return headers
+
+
+def env_state_to_readable_str(env:MiniGridEnv):
+    res = ''
+    i = 0
+    indent = '  '
+    vals = extract_features_DoorKey(env)
+    for key in feature_headers_DoorKey():
+        key = key.replace('env, ', '').replace('"','').replace('env.','').replace('get_nearest(','').replace('check(front_pos, ','in_front(').replace('is_','').replace('agent_','').replace('))',')').replace('agent_','').replace('agents_','')
+        res += indent
+        res += ('F'+str(i)+":").ljust(5,' ')
+        res += (key+':').ljust(17,' ')
+        res += str(vals[i])
+        res += '\n'
+        i+=1
+    return res
 
 
 feature_register = {
