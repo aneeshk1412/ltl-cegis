@@ -25,7 +25,7 @@ class Verifier:
         action_selection_policy,
         observation_function,
         seed=None,
-        fix_start_env=False,
+        start_env_given=False,
         num_trials: int = 20,
         trials: int = 0,
         show_window: bool = False,
@@ -42,11 +42,10 @@ class Verifier:
         self.num_trials = num_trials
         self.trials = trials
         self.result = (True, None)
-        self.step_cnt = 0
         self.epoch = epoch
 
-        self.fix_start_env = fix_start_env
-        if self.fix_start_env:
+        self.start_env_given = start_env_given
+        if self.start_env_given:
             self.done = False
             self.env.seed = seed
 
@@ -56,17 +55,23 @@ class Verifier:
             self.agent_view = agent_view
 
     def start(self):
-        if not self.fix_start_env:
+        if self.start_env_given:
+            self.env.soft_reset()
+        else:
             self.reset(self.seed)
+
         if self.show_window:
             self.window.show(block=False)
         self.redraw()
+
         while self.step_using_asp() and self.trials <= self.num_trials:
             self.redraw()
-            if self.fix_start_env and self.done:
+            if self.start_env_given and self.done:
                 break
+
         if self.show_window:
             self.window.close()
+
         return self.result
 
     def redraw(self):
@@ -76,25 +81,29 @@ class Verifier:
 
     def step(self, action: MiniGridEnv.Actions):
         _, reward, terminated, truncated, _ = self.env.step(action)
+
         if self.show_window:
-            self.window.set_caption( 'Epoch#' + str(self.epoch)+'   Trial#' + str(self.trials) + '   Step#'+ str(self.step_cnt) + '   ' +  str(action).replace('s.',':'))
-        self.step_cnt = self.step_cnt + 1
+            self.window.set_caption(f"Epoch#: {self.epoch}, Trial#: {self.trials}, Step#: {self.env.step_count}, Action: {action.value}")
+
         if truncated:
-            print(f"timeout!")
+            print(f"Timed Out!")
             print(f"CEx at: {self.trials = } out of {self.num_trials = }")
             self.result = (False, self.demonstration)
             self.done = True
             return False  ## Remove this if we dont want timeout based Counter Examples
             # self.reset(self.seed) ## Add this if we dont want timeout based Counter Examples
+
         if terminated and reward < 0:
             print(f"violation of property!")
+            print(f"CEx at: {self.trials = } out of {self.num_trials = }")
             self.result = (False, self.demonstration)
             self.done = True
-            print(f"CEx at: {self.trials = } out of {self.num_trials = }")
             return False
+
         if terminated:
             self.reset(self.seed)
             self.done = True
+
         return True
 
     def reset(self, seed=None):
@@ -132,7 +141,7 @@ def verify_action_selection_policy(
     show_window=False,
     tile_size=32,
     agent_view=False,
-    epoch = -1,
+    epoch=-1,
     use_known_error_envs=False,
 ):
     env: MiniGridEnv = gym.make(env_name, tile_size=tile_size, max_steps=timeout)
@@ -152,7 +161,7 @@ def verify_action_selection_policy(
                 seed=seed,
                 num_trials=num_trials,
                 trials=i,
-                fix_start_env=True,
+                start_env_given=True,
                 show_window=show_window,
                 agent_view=agent_view,
                 epoch=epoch
@@ -169,6 +178,7 @@ def verify_action_selection_policy(
         seed=seed,
         num_trials=num_trials,
         trials=i,
+        start_env_given=False,
         show_window=show_window,
         agent_view=agent_view,
         epoch=epoch
@@ -199,7 +209,7 @@ def verify_action_selection_policy_on_env(
         observation_function,
         seed=seed,
         num_trials=1,
-        fix_start_env=True,
+        start_env_given=True,
         show_window=show_window,
         agent_view=agent_view,
         epoch=epoch
@@ -214,6 +224,7 @@ if __name__ == "__main__":
     from asp_minigrid import (
         ground_truth_asp_register,
         action_selection_policy_DoorKey_wrong,
+        action_selection_policy_DoorKey_ground_truth,
     )
 
     parser = argparse.ArgumentParser()
@@ -319,3 +330,21 @@ if __name__ == "__main__":
             print(env)
 
     print("\n\n")
+
+    sat, trace = verify_action_selection_policy_on_env(
+        trace[-4][0],
+        action_selection_policy_DoorKey_ground_truth,
+        feature_register[args.env_name],
+        seed=args.seed,
+        timeout=args.timeout,
+        show_window=args.show_window,
+        tile_size=args.tile_size,
+        agent_view=args.agent_view,
+    )
+    print(sat)
+    if not sat:
+        for env, obs, act in trace:
+            print(obs)
+            print(f"action={act}")
+        for env, _, _ in trace:
+            print(env)
