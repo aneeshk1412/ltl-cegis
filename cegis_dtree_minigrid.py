@@ -104,7 +104,7 @@ def random_loop_correction(positive_dict, trace):
     return None, None
 
 
-def one_shot_learning(args):
+def one_shot_learning(args, score_type):
     # init variabales
     show_tree = False
     # how mnay attempts for finindg counter-examples? this is the size of the set of counter-examples returned for analysis
@@ -162,18 +162,19 @@ def one_shot_learning(args):
         use_known_error_envs=False,
         verify_each_step_manually=False,
         cex_count=number_of_counter_examples,
+        score_type_in=score_type
     )
     print(f"{sats = }")
 
     # suggest a (set of) new samples based on the counter-examples (try to automate the insights from above step)
     if len(traces) > 0:
         # calculate the epoch score as the average number of epochs before a counter-example was found
-        analyze_traces_suggest_repair(traces, epoch_score)
+        analyze_traces_suggest_repair(traces, epoch_score, score_type)
     else: # first attempt to verification was successful and no counter-example was found
         print('correct program is found')
 
 
-def analyze_traces_suggest_repair(traces, epoch_score):
+def analyze_traces_suggest_repair(traces, epoch_score, score_type):
     # load known samples from samples.csv file (this is only used for manual analysis)
     # includes all samples (added manually not from demo) that are in the samples.csv file. Only samples which do not start with # are used for training
     manually_added_samples = []
@@ -239,7 +240,6 @@ def analyze_traces_suggest_repair(traces, epoch_score):
     for s in event_map:
         res.append(['bv#'+str(i)] + list(action_map[s]) + [event_map[s]
                                                            ] + [no_rep_event_map[s]] + [str(x)[0] for x in s])
-        
         # identify the most frequent new (not used in training) state with and without repetition
         # we do not consider existing samples used for training to be picked for repair (i.e., we never roll back)
         if s in [tuple(x) for x in manually_added_samples_included_in_training]:
@@ -272,7 +272,7 @@ def analyze_traces_suggest_repair(traces, epoch_score):
     print('* total len:   ', total_trace_lens)
     print('* trace count: ', trace_cnt)
     # epoch score = in total, how many attempts were made to find the given counter-examples? The higher score means it was harder for the model checker to find counter-examples, i.e. the quality of the ASP was higher
-    print('* epoch score: ', epoch_score)
+    print('* epoch accuracy: ', epoch_score)
     print()
 
     # print a summary of states encountered on traces and the frequency of each state in a table
@@ -304,15 +304,30 @@ def analyze_traces_suggest_repair(traces, epoch_score):
           str(no_rep_max_seen_cnt).ljust(3, ' '), 'repeitions:', str(no_rep_chosen_bv).replace(' ', ''))
     print('(w/o repetition) index in known set:', known_tuples.index(no_rep_chosen_bv)
           if no_rep_chosen_bv in known_tuples else -1)
-    print ('(w/o repetition) label epoch scores:')
-    get_candidate_label_scores(args=args, new_sample_state=no_rep_chosen_bv, test_cnt=30) #XXX 30 is hardcoded for now. make it a passed parameter # TODO
+   
+    
+    print ('\n')
+    if trace_cnt > 1:
+        print ('metric with no repetition is used since there are multiple counter-examples')
+        final_chosen_bv = no_rep_chosen_bv
+    else:
+        print ('metric with repetition is used since there is only 1 counter-example')
+        final_chosen_bv = chosen_bv
+
+    print ('label epoch accuracies:')
+    chosen_label = get_candidate_label_scores(args=args, new_sample_state=final_chosen_bv, test_cnt=30, score_type=score_type) #XXX 30 is hardcoded for now. make it a passed parameter # TODO
     
     #for label in label_scores:
     #    print ('                                        - '+label, label_scores[label])
+    print('\n>> Suggested sample to add:     ', str(final_chosen_bv).replace(' ', '').replace(')','').replace('(','')+','+chosen_label)
     print('\n\n')
+def get_pass_ratio_score():
+    pass
 
 
-def get_candidate_label_scores(args, new_sample_state, test_cnt):
+
+
+def get_candidate_label_scores(args, new_sample_state, test_cnt, score_type):
     label_scores = {'left':-1, 'right':-1, 'up':-1, 'pageup':-1}
     for label in label_scores:
         state_demos = []
@@ -344,11 +359,14 @@ def get_candidate_label_scores(args, new_sample_state, test_cnt):
             use_known_error_envs=False,
             verify_each_step_manually=False,
             cex_count=test_cnt,
-            mute = True
+            mute = True,
+            score_type_in=score_type
         )
         label_scores[label] = epoch_score
         print ('    -'+label+": "+str(epoch_score))
-    return label_scores
+    return max(label_scores, key=label_scores.get)
+    
+    
 
 
 
@@ -458,8 +476,9 @@ if __name__ == "__main__":
     )
 
     args = parser.parse_args()
-
-    one_shot_learning(args=args)
+    #score_type = 'first_error_lens'
+    score_type = 'pass_to_all_ratio'
+    one_shot_learning(args=args, score_type=score_type)
     raise Exception('EXIT')
 
     num_demos = 1 if args.num_demos == 0 else args.num_demos

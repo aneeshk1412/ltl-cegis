@@ -35,13 +35,12 @@ class Verifier:
         epoch : int = -1,
         verify_each_step_manually: bool = False,
         mute:bool = False,
+        score_type = None,
     ) -> None:
         self.env = env
         self.action_selection_policy = action_selection_policy
         self.observation_function = observation_function
-
         self.seed = seed
-
         self.demonstration = []
         self.num_trials = num_trials
         self.trials = trials
@@ -50,10 +49,12 @@ class Verifier:
         self.epoch = epoch
         self.mute = mute
         self.verify_each_step_manually = verify_each_step_manually
-
+        assert score_type in  ['first_error_lens', 'pass_to_all_ratio']
+        self.score_type = score_type  
         self.fix_start_env = fix_start_env
+        self.done = False
         if self.fix_start_env:
-            self.done = False
+            
             self.env.seed = seed
 
         self.show_window = show_window
@@ -67,10 +68,18 @@ class Verifier:
         if not self.fix_start_env:
             self.reset(self.seed)
         self.redraw()
-        while self.step_using_asp() and self.trials <= self.num_trials:
-            self.redraw()
-            if self.fix_start_env and self.done:
-                break
+        if self.score_type == 'first_error_lens':
+            while self.step_using_asp() and self.trials <= self.num_trials:
+                self.redraw()
+                if self.fix_start_env and self.done:
+                    break
+        elif self.score_type == 'pass_to_all_ratio':
+            while self.trials <= self.num_trials:
+                self.redraw()
+                self.step_using_asp()
+                if self.done:
+                    break
+            
         return [x for x in self.result] + [self.trials]
 
     def redraw(self):
@@ -139,9 +148,6 @@ class Verifier:
             else:
                 print (str(action))
             print (' ')
-
-
-        
         return self.step(action)
 
 
@@ -159,7 +165,8 @@ def verify_action_selection_policy(
     use_known_error_envs=False,
     verify_each_step_manually = False,
     cex_count = 1,
-    mute: bool = False
+    mute: bool = False,
+    score_type_in = None,
 ):
     total_epochs = 0
     env: MiniGridEnv = gym.make(env_name, tile_size=tile_size, max_steps=timeout)
@@ -182,7 +189,8 @@ def verify_action_selection_policy(
                 fix_start_env=True,
                 show_window=show_window,
                 agent_view=agent_view,
-                epoch=epoch
+                epoch=epoch,
+                score_type = score_type_in
             )
             sat, trace = verifier.start()
             if not sat:
@@ -204,7 +212,8 @@ def verify_action_selection_policy(
             agent_view=agent_view,
             epoch=epoch,
             verify_each_step_manually = verify_each_step_manually,
-            mute = mute
+            mute = mute,
+            score_type=score_type_in
         )
         sat, trace, epochs = verifier.start()
         sats.append(sat)
@@ -212,8 +221,12 @@ def verify_action_selection_policy(
             total_epochs += epochs
             traces.append(trace)
         else:
-            break # once a sat case is found do not continue
-    return sats, traces, total_epochs*1.0/len(traces)
+            if score_type_in == 'first_error_lens':
+                break # once a sat case is found do not continue
+    if score_type_in == 'first_error_lens':
+        return sats, traces, total_epochs*1.0/len(traces)
+    else:
+        return sats, traces, len([x for x in sats if x])/(len(sats)*1.0)
 
 
 def verify_action_selection_policy_on_env(
