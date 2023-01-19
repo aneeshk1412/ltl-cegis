@@ -28,26 +28,26 @@ def get_stem_and_loop(trace):
     return trace, None
 
 
-def train_and_save_model(positive_dict, negative_dict, extra_dict=None, seed=None):
+def train_and_save_model(demonstrations_sample_dict, speculated_sample_dict, extra_dict=None, seed=None):
     if extra_dict is None:
-        assert set(positive_dict.keys()) & set(negative_dict.keys()) == set([])
+        assert set(demonstrations_sample_dict.keys()) & set(speculated_sample_dict.keys()) == set([])
         state_demos = pd.DataFrame(
-            [state for state in positive_dict] + [state for state in negative_dict]
+            [state for state in demonstrations_sample_dict] + [state for state in speculated_sample_dict]
         )
         act_demos = pd.DataFrame(
-            [positive_dict[state] for state in positive_dict]
-            + [negative_dict[state] for state in negative_dict]
+            [demonstrations_sample_dict[state] for state in demonstrations_sample_dict]
+            + [speculated_sample_dict[state] for state in speculated_sample_dict]
         )
     else:
-        assert set(positive_dict.keys()) & set(negative_dict.keys()) == set([])
+        assert set(demonstrations_sample_dict.keys()) & set(speculated_sample_dict.keys()) == set([])
         state_demos = pd.DataFrame(
-            [state for state in positive_dict]
-            + [state for state in negative_dict]
+            [state for state in demonstrations_sample_dict]
+            + [state for state in speculated_sample_dict]
             + [state for state in extra_dict]
         )
         act_demos = pd.DataFrame(
-            [positive_dict[state] for state in positive_dict]
-            + [negative_dict[state] for state in negative_dict]
+            [demonstrations_sample_dict[state] for state in demonstrations_sample_dict]
+            + [speculated_sample_dict[state] for state in speculated_sample_dict]
             + [extra_dict[state] for state in extra_dict]
         )
     aspmodel = tree.DecisionTreeClassifier(
@@ -77,25 +77,28 @@ def print_trace_stem_loop(trace, stem, loop):
         print()
 
 
-def random_sampling_algorithm(positive_dict, trace):
+def random_sampling_algorithm(demonstrations_sample_dict, trace):
     for _, obs, act in reversed(trace):
-        if obs in positive_dict:
+        if obs in demonstrations_sample_dict:
             continue
         new_act = random.sample([a for a in ACT_KEY_TO_IDX.keys() if a != act], 1)
         return obs, new_act[0]
     return None, None
 
 
-def random_loop_correction(positive_dict, trace):
+def random_loop_correction(demonstrations_sample_dict, trace):
     stem, loop = get_stem_and_loop(trace)
     if loop is None:
-        return random_sampling_algorithm(positive_dict, stem)
+        return random_sampling_algorithm(demonstrations_sample_dict, stem)
     for _, obs, act in loop:
-        if obs in positive_dict:
+        if obs in demonstrations_sample_dict:
             continue
         new_act = random.sample([a for a in ACT_KEY_TO_IDX.keys() if a != act], 1)
         return obs, new_act[0]
     return None, None
+
+
+def bounded_backtracking_correction()
 
 
 if __name__ == "__main__":
@@ -169,14 +172,14 @@ if __name__ == "__main__":
     parser.add_argument(
         "--agent-view",
         default=False,
-        help="draw the agent sees (partially observable view)",
+        help="draw what the agent sees (partially observable view)",
         action="store_true",
     )
 
     args = parser.parse_args()
 
     num_demos = 1 if args.num_demos == 0 else args.num_demos
-    positive_demos = generate_demonstrations(
+    positive_demonstrations_list = generate_demonstrations(
         args.env_name,
         ground_truth_asp_register[args.env_name],
         feature_register[args.env_name],
@@ -189,15 +192,15 @@ if __name__ == "__main__":
         agent_view=args.agent_view,
     )
     if args.num_demos == 0:
-        positive_demos = positive_demos[:1]
-    positive_dict = dict((obs, act) for _, obs, act in positive_demos)
-    negative_dict = dict()
+        positive_demonstrations_list = positive_demonstrations_list[:1]
+    demonstrations_sample_dict = dict((obs, act) for _, obs, act in positive_demonstrations_list)
+    speculated_sample_dict = dict()
 
     sat = False
     epoch = 0
     while not sat:
         print(f"{epoch = }")
-        aspmodel = train_and_save_model(positive_dict, negative_dict, seed=args.tree_seed)
+        aspmodel = train_and_save_model(demonstrations_sample_dict, speculated_sample_dict, seed=args.tree_seed)
 
         action_selection_policy = lambda env: action_selection_policy_decision_tree(env, aspmodel, feature_register[args.env_name])
         sat, trace = verify_action_selection_policy(
@@ -216,8 +219,8 @@ if __name__ == "__main__":
 
         print(f"{sat = }")
         if not sat:
-            obs, act = random_sampling_algorithm(positive_dict, trace)
-            negative_dict[obs] = act
+            obs, act = random_sampling_algorithm(demonstrations_sample_dict, trace)
+            speculated_sample_dict[obs] = act
             print(f"Added Demonstration: {obs} -> {act}")
         print()
         epoch += 1
@@ -226,7 +229,7 @@ if __name__ == "__main__":
         tree.plot_tree(
             aspmodel,
             max_depth=None,
-            class_names=sorted(set(positive_dict.values()) | set(negative_dict.values())),
+            class_names=sorted(set(demonstrations_sample_dict.values()) | set(speculated_sample_dict.values())),
             label="none",
             precision=1,
             feature_names=header_register[args.env_name],
