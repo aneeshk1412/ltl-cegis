@@ -13,7 +13,7 @@ import random
 
 from minigrid.core.constants import ACT_KEY_TO_IDX
 
-from verifier_minigrid import load_all_pickle, verify_action_selection_policy
+from verifier_minigrid import verify_action_selection_policy
 from demos_gen_minigrid import generate_demonstrations
 
 
