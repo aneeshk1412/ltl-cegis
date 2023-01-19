@@ -94,7 +94,7 @@ class Verifier:
             # self.reset(self.seed) ## Add this if we dont want timeout based Counter Examples
 
         if terminated and reward < 0:
-            print(f"violation of property!")
+            print(f"Violation of Property!")
             print(f"CEx at: {self.trials = } out of {self.num_trials = }")
             self.result = (False, self.demonstration)
             self.done = True
@@ -326,8 +326,8 @@ if __name__ == "__main__":
         for env, obs, act in trace:
             print(obs)
             print(f"action={act}")
-        for env, _, _ in trace:
-            print(env)
+        # for env, _, _ in trace:
+        #     print(env)
 
     print("\n\n")
 
@@ -346,5 +346,5 @@ if __name__ == "__main__":
         for env, obs, act in trace:
             print(obs)
             print(f"action={act}")
-        for env, _, _ in trace:
-            print(env)
+        # for env, _, _ in trace:
+        #     print(env)
