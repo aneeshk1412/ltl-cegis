@@ -10,10 +10,14 @@ from sklearn import tree
 from pprint import pprint
 import matplotlib.pyplot as plt
 import random
+from copy import deepcopy
 
 from minigrid.core.constants import ACT_KEY_TO_IDX
 
-from verifier_minigrid import verify_action_selection_policy
+from verifier_minigrid import (
+    verify_action_selection_policy,
+    verify_action_selection_policy_on_env,
+)
 from demos_gen_minigrid import generate_demonstrations
 
 
@@ -28,18 +32,25 @@ def get_stem_and_loop(trace):
     return trace, None
 
 
-def train_and_save_model(demonstrations_sample_dict, speculated_sample_dict, extra_dict=None, seed=None):
+def train_and_save_model(
+    demonstrations_sample_dict, speculated_sample_dict, extra_dict=None, seed=None
+):
     if extra_dict is None:
-        assert set(demonstrations_sample_dict.keys()) & set(speculated_sample_dict.keys()) == set([])
+        assert set(demonstrations_sample_dict.keys()) & set(
+            speculated_sample_dict.keys()
+        ) == set([])
         state_demos = pd.DataFrame(
-            [state for state in demonstrations_sample_dict] + [state for state in speculated_sample_dict]
+            [state for state in demonstrations_sample_dict]
+            + [state for state in speculated_sample_dict]
         )
         act_demos = pd.DataFrame(
             [demonstrations_sample_dict[state] for state in demonstrations_sample_dict]
             + [speculated_sample_dict[state] for state in speculated_sample_dict]
         )
     else:
-        assert set(demonstrations_sample_dict.keys()) & set(speculated_sample_dict.keys()) == set([])
+        assert set(demonstrations_sample_dict.keys()) & set(
+            speculated_sample_dict.keys()
+        ) == set([])
         state_demos = pd.DataFrame(
             [state for state in demonstrations_sample_dict]
             + [state for state in speculated_sample_dict]
@@ -98,12 +109,78 @@ def random_loop_correction(demonstrations_sample_dict, trace):
     return None, None
 
 
-def bounded_backtracking_correction()
+def bounded_backtracking_single_trace(args, demonstrations_sample_dict, trace):
+    speculated_sample_dict = dict()
+    first_env, _, _ = trace[0]
+    trace_unique = list(set((obs, act) for _, obs, act in trace))
+    print(f"{trace_unique = }")
+    new_speculated_sample_dict = bounded_backtracking_single_trace_helper(
+        args,
+        demonstrations_sample_dict,
+        speculated_sample_dict,
+        trace_unique,
+        first_env,
+    )
+    return new_speculated_sample_dict
+
+
+def bounded_backtracking_single_trace_helper(
+    args,
+    demonstrations_sample_dict,
+    speculated_sample_dict,
+    trace_unique,
+    first_env,
+    bound=3,
+):
+    print(trace_unique)
+    if bound == 0 or len(trace_unique) == 0:
+        ## Try this speculated_sample_dict
+        aspmodel = train_and_save_model(
+            demonstrations_sample_dict, speculated_sample_dict, seed=args.tree_seed
+        )
+        action_selection_policy = lambda env: action_selection_policy_decision_tree(
+            env, aspmodel, feature_register[args.env_name]
+        )
+
+        sat, _ = verify_action_selection_policy_on_env(
+            first_env,
+            action_selection_policy,
+            feature_register[args.env_name],
+            seed=args.verifier_seed,
+            timeout=args.timeout,
+            show_window=args.show_window,
+            tile_size=args.tile_size,
+            agent_view=args.agent_view,
+        )
+        if sat:
+            return deepcopy(speculated_sample_dict)
+        else:
+            return dict()
+    else:
+        last_obs, _ = trace_unique[-1]
+        ## Try to set each action for the last state in the trace
+        ## Also handles the case where action is unchanged
+        for act in ACT_KEY_TO_IDX.keys():
+            speculated_sample_dict[last_obs] = act
+            new_speculated_sample_dict = bounded_backtracking_single_trace_helper(
+                args,
+                demonstrations_sample_dict,
+                speculated_sample_dict,
+                trace_unique[:-1],
+                first_env,
+                bound=bound - 1,
+            )
+            if new_speculated_sample_dict:
+                return new_speculated_sample_dict
+        return dict()
 
 
 if __name__ == "__main__":
     import argparse
-    from asp_minigrid import ground_truth_asp_register, action_selection_policy_decision_tree
+    from asp_minigrid import (
+        ground_truth_asp_register,
+        action_selection_policy_decision_tree,
+    )
     from dsl_minigrid import feature_register, header_register
 
     parser = argparse.ArgumentParser()
@@ -193,16 +270,22 @@ if __name__ == "__main__":
     )
     if args.num_demos == 0:
         positive_demonstrations_list = positive_demonstrations_list[:1]
-    demonstrations_sample_dict = dict((obs, act) for _, obs, act in positive_demonstrations_list)
+    demonstrations_sample_dict = dict(
+        (obs, act) for _, obs, act in positive_demonstrations_list
+    )
     speculated_sample_dict = dict()
 
     sat = False
     epoch = 0
     while not sat:
         print(f"{epoch = }")
-        aspmodel = train_and_save_model(demonstrations_sample_dict, speculated_sample_dict, seed=args.tree_seed)
+        aspmodel = train_and_save_model(
+            demonstrations_sample_dict, speculated_sample_dict, seed=args.tree_seed
+        )
 
-        action_selection_policy = lambda env: action_selection_policy_decision_tree(env, aspmodel, feature_register[args.env_name])
+        action_selection_policy = lambda env: action_selection_policy_decision_tree(
+            env, aspmodel, feature_register[args.env_name]
+        )
         sat, trace = verify_action_selection_policy(
             args.env_name,
             action_selection_policy,
@@ -214,14 +297,18 @@ if __name__ == "__main__":
             tile_size=args.tile_size,
             agent_view=args.agent_view,
             epoch=epoch,
-            use_known_error_envs=True
+            use_known_error_envs=True,
         )
 
         print(f"{sat = }")
         if not sat:
-            obs, act = random_sampling_algorithm(demonstrations_sample_dict, trace)
-            speculated_sample_dict[obs] = act
-            print(f"Added Demonstration: {obs} -> {act}")
+            # obs, act = random_sampling_algorithm(demonstrations_sample_dict, trace)
+            # speculated_sample_dict[obs] = act
+            # print(f"Added Demonstration: {obs} -> {act}")
+            new_speculated_sample_dict = bounded_backtracking_single_trace(args, demonstrations_sample_dict, trace)
+            for obs, act in new_speculated_sample_dict:
+                ## This might rewrite stuff though
+                speculated_sample_dict[obs] = act
         print()
         epoch += 1
 
@@ -229,7 +316,10 @@ if __name__ == "__main__":
         tree.plot_tree(
             aspmodel,
             max_depth=None,
-            class_names=sorted(set(demonstrations_sample_dict.values()) | set(speculated_sample_dict.values())),
+            class_names=sorted(
+                set(demonstrations_sample_dict.values())
+                | set(speculated_sample_dict.values())
+            ),
             label="none",
             precision=1,
             feature_names=header_register[args.env_name],
