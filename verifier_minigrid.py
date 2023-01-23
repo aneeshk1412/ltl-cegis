@@ -86,16 +86,16 @@ class Verifier:
             self.window.set_caption(f"Epoch#: {self.epoch}, Trial#: {self.trials}, Step#: {self.env.step_count}, Action: {action.value}")
 
         if truncated:
-            print(f"Timed Out!")
-            print(f"CEx at: {self.trials = } out of {self.num_trials = }")
+            # print(f"Timed Out!")
+            # print(f"CEx at: {self.trials = } out of {self.num_trials = }")
             self.result = (False, self.demonstration)
             self.done = True
             return False  ## Remove this if we dont want timeout based Counter Examples
             # self.reset(self.seed) ## Add this if we dont want timeout based Counter Examples
 
         if terminated and reward < 0:
-            print(f"Violation of Property!")
-            print(f"CEx at: {self.trials = } out of {self.num_trials = }")
+            # print(f"Violation of Property!")
+            # print(f"CEx at: {self.trials = } out of {self.num_trials = }")
             self.result = (False, self.demonstration)
             self.done = True
             return False

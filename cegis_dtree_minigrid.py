@@ -88,8 +88,12 @@ def print_trace_stem_loop(trace, stem, loop):
         print()
 
 
+def get_unique_states_from_trace(trace):
+    return list(set((obs, act) for _, obs, act in trace))
+
+
 def random_sampling_algorithm(demonstrations_sample_dict, trace):
-    for _, obs, act in reversed(trace):
+    for obs, act in reversed(get_unique_states_from_trace(trace)):
         if obs in demonstrations_sample_dict:
             continue
         new_act = random.sample([a for a in ACT_KEY_TO_IDX.keys() if a != act], 1)
@@ -101,7 +105,7 @@ def random_loop_correction(demonstrations_sample_dict, trace):
     stem, loop = get_stem_and_loop(trace)
     if loop is None:
         return random_sampling_algorithm(demonstrations_sample_dict, stem)
-    for _, obs, act in loop:
+    for obs, act in get_unique_states_from_trace(loop):
         if obs in demonstrations_sample_dict:
             continue
         new_act = random.sample([a for a in ACT_KEY_TO_IDX.keys() if a != act], 1)
@@ -109,70 +113,75 @@ def random_loop_correction(demonstrations_sample_dict, trace):
     return None, None
 
 
-def bounded_backtracking_single_trace(args, demonstrations_sample_dict, trace):
-    speculated_sample_dict = dict()
+def bounded_dfs_single_trace(args, demonstrations_sample_dict, speculated_sample_dict, trace):
+    current_speculated_sample_dict = deepcopy(speculated_sample_dict)
     first_env, _, _ = trace[0]
-    trace_unique = list(set((obs, act) for _, obs, act in trace))
-    print(f"{trace_unique = }")
-    new_speculated_sample_dict = bounded_backtracking_single_trace_helper(
+    new_speculated_sample_dict = bounded_dfs_single_trace_helper(
         args,
         demonstrations_sample_dict,
-        speculated_sample_dict,
-        trace_unique,
+        current_speculated_sample_dict,
+        trace,
         first_env,
     )
     return new_speculated_sample_dict
 
 
-def bounded_backtracking_single_trace_helper(
+def bounded_dfs_single_trace_helper(
     args,
     demonstrations_sample_dict,
     speculated_sample_dict,
-    trace_unique,
+    trace,
     first_env,
     bound=3,
 ):
-    print(trace_unique)
-    if bound == 0 or len(trace_unique) == 0:
-        ## Try this speculated_sample_dict
-        aspmodel = train_and_save_model(
-            demonstrations_sample_dict, speculated_sample_dict, seed=args.tree_seed
-        )
-        action_selection_policy = lambda env: action_selection_policy_decision_tree(
-            env, aspmodel, feature_register[args.env_name]
-        )
-
-        sat, _ = verify_action_selection_policy_on_env(
-            first_env,
-            action_selection_policy,
-            feature_register[args.env_name],
-            seed=args.verifier_seed,
-            timeout=args.timeout,
-            show_window=args.show_window,
-            tile_size=args.tile_size,
-            agent_view=args.agent_view,
-        )
-        if sat:
-            return deepcopy(speculated_sample_dict)
-        else:
-            return dict()
-    else:
-        last_obs, _ = trace_unique[-1]
-        ## Try to set each action for the last state in the trace
-        ## Also handles the case where action is unchanged
-        for act in ACT_KEY_TO_IDX.keys():
-            speculated_sample_dict[last_obs] = act
-            new_speculated_sample_dict = bounded_backtracking_single_trace_helper(
-                args,
-                demonstrations_sample_dict,
-                speculated_sample_dict,
-                trace_unique[:-1],
-                first_env,
-                bound=bound - 1,
-            )
-            if new_speculated_sample_dict:
-                return new_speculated_sample_dict
+    if bound == 0:
         return dict()
+    for obs, act in reversed(get_unique_states_from_trace(trace)):
+        if obs in demonstrations_sample_dict:
+            continue
+        ## Change the label of the last observation which is not in demonstration samples
+        for new_act in ACT_KEY_TO_IDX.keys():
+            if new_act != act:
+                print(f"{(bound, obs, new_act) =}")
+                # print(f"{get_unique_states_from_trace(trace)}")
+                speculated_sample_dict[obs] = new_act
+                aspmodel = train_and_save_model(
+                    demonstrations_sample_dict,
+                    speculated_sample_dict,
+                    seed=args.tree_seed,
+                )
+                action_selection_policy = (
+                    lambda env: action_selection_policy_decision_tree(
+                        env, aspmodel, feature_register[args.env_name]
+                    )
+                )
+
+                sat, new_trace = verify_action_selection_policy_on_env(
+                    first_env,
+                    action_selection_policy,
+                    feature_register[args.env_name],
+                    seed=args.verifier_seed,
+                    timeout=args.timeout,
+                    show_window=args.show_window,
+                    tile_size=args.tile_size,
+                    agent_view=args.agent_view,
+                )
+                if sat:
+                    ## Found a satisfying speculation for this first_env
+                    return deepcopy(speculated_sample_dict)
+                else:
+                    ## Recursion
+                    # print(f"{get_unique_states_from_trace(new_trace)}")
+                    new_speculated_sample_dict = bounded_dfs_single_trace_helper(
+                        args,
+                        demonstrations_sample_dict,
+                        speculated_sample_dict,
+                        new_trace,
+                        first_env,
+                        bound - 1,
+                    )
+                    if new_speculated_sample_dict:
+                        return new_speculated_sample_dict
 
 
 if __name__ == "__main__":
@@ -302,13 +311,24 @@ if __name__ == "__main__":
 
         print(f"{sat = }")
         if not sat:
-            # obs, act = random_sampling_algorithm(demonstrations_sample_dict, trace)
-            # speculated_sample_dict[obs] = act
-            # print(f"Added Demonstration: {obs} -> {act}")
-            new_speculated_sample_dict = bounded_backtracking_single_trace(args, demonstrations_sample_dict, trace)
-            for obs, act in new_speculated_sample_dict:
-                ## This might rewrite stuff though
+            new_speculated_sample_dict = bounded_dfs_single_trace(
+                args, demonstrations_sample_dict, speculated_sample_dict, trace
+            )
+            if new_speculated_sample_dict:
+                print("")
+                print(f"Found a new speculation:")
+                pprint(new_speculated_sample_dict)
+                for obs, act in new_speculated_sample_dict.items():
+                    ## This might rewrite stuff though
+                    if obs in speculated_sample_dict:
+                        print("Rewrite occured...")
+                    speculated_sample_dict[obs] = act
+            else:
+                print(f"Fallback to Random Sampling...")
+                obs, act = random_sampling_algorithm(demonstrations_sample_dict, trace)
                 speculated_sample_dict[obs] = act
+                print(f"Added Demonstration: {obs} -> {act}")
+
         print()
         epoch += 1
 
