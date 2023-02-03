@@ -3,6 +3,7 @@
 .vscode
 
 __pycache__/
-src/verifier/tempprog.c
+lib/
 
-DT.model
+model.pkl
+nt.html

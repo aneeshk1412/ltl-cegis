@@ -1,350 +1,131 @@
 #!/usr/bin/env python3
 
-import pickle
 import gymnasium as gym
-from copy import deepcopy
+
+from runner_minigrid import Runner
+from utils import load_list_from_pickle
 
 from minigrid.utils.window import Window
 from minigrid.minigrid_env import MiniGridEnv
-from minigrid.wrappers import ImgObsWrapper, RGBImgPartialObsWrapper
 
 
-def load_all_pickle(filename):
-    with open(filename, "rb") as f:
-        while True:
-            try:
-                yield pickle.load(f)
-            except EOFError:
-                break
+class Verify(Runner):
+    def run(self):
+        super().run_internal()
+        self.traces = [t for t in self.traces if t]
+        return (self.sat, self.traces)
+
+    def stopping_cond(self) -> bool:
+        return self.sat and (self.num_runs is None or self.cur_run <= self.num_runs)
+
+    def process_trace(self, sat: bool) -> None:
+        if sat:
+            self.traces = self.traces[:-1]
 
 
-class Verifier:
-    def __init__(
-        self,
-        env: MiniGridEnv,
-        action_selection_policy,
-        observation_function,
-        seed=None,
-        start_env_given=False,
-        num_trials: int = 20,
-        trials: int = 0,
-        show_window: bool = False,
-        agent_view: bool = False,
-        epoch : int = -1,
-    ) -> None:
-        self.env = env
-        self.action_selection_policy = action_selection_policy
-        self.observation_function = observation_function
+class VerifyAll(Runner):
+    def run(self):
+        super().run_internal()
+        if not self.traces[-1]:
+            self.traces = self.traces[:-1]
+        return (self.sat, self.traces)
 
-        self.seed = seed
+    def stopping_cond(self) -> bool:
+        return self.num_runs is None or self.cur_run <= self.num_runs
 
-        self.demonstration = []
-        self.num_trials = num_trials
-        self.trials = trials
-        self.result = (True, None)
-        self.epoch = epoch
-
-        self.start_env_given = start_env_given
-        if self.start_env_given:
-            self.done = False
-            self.env.seed = seed
-
-        self.show_window = show_window
-        if self.show_window:
-            self.window = Window("minigrid - " + str(env.__class__))
-            self.agent_view = agent_view
-
-    def start(self):
-        if self.start_env_given:
-            self.env.soft_reset()
-        else:
-            self.reset(self.seed)
-
-        if self.show_window:
-            self.window.show(block=False)
-        self.redraw()
-
-        while self.step_using_asp() and self.trials <= self.num_trials:
-            self.redraw()
-            if self.start_env_given and self.done:
-                break
-
-        if self.show_window:
-            self.window.close()
-
-        return self.result
-
-    def redraw(self):
-        if self.show_window:
-            frame = self.env.get_frame(agent_pov=self.agent_view)
-            self.window.show_img(frame)
-
-    def step(self, action: MiniGridEnv.Actions):
-        _, reward, terminated, truncated, _ = self.env.step(action)
-
-        if self.show_window:
-            self.window.set_caption(f"Epoch#: {self.epoch}, Trial#: {self.trials}, Step#: {self.env.step_count}, Action: {action.value}")
-
-        if truncated:
-            # print(f"Timed Out!")
-            # print(f"CEx at: {self.trials = } out of {self.num_trials = }")
-            self.result = (False, self.demonstration)
-            self.done = True
-            return False  ## Remove this if we dont want timeout based Counter Examples
-            # self.reset(self.seed) ## Add this if we dont want timeout based Counter Examples
-
-        if terminated and reward < 0:
-            # print(f"Violation of Property!")
-            # print(f"CEx at: {self.trials = } out of {self.num_trials = }")
-            self.result = (False, self.demonstration)
-            self.done = True
-            return False
-
-        if terminated:
-            self.reset(self.seed)
-            self.done = True
-
-        return True
-
-    def reset(self, seed=None):
-        self.env.reset(seed=seed)
-        self.demonstration = []
-        self.trials += 1
-        if self.show_window:
-            self.window.set_caption(self.env.mission)
-
-    def step_using_asp(self):
-        key = self.action_selection_policy(self.env)
-        self.demonstration.append((deepcopy(self.env), self.observation_function(self.env), key))
-
-        key_to_action = {
-            "left": MiniGridEnv.Actions.left,
-            "right": MiniGridEnv.Actions.right,
-            "up": MiniGridEnv.Actions.forward,
-            " ": MiniGridEnv.Actions.toggle,
-            "pageup": MiniGridEnv.Actions.pickup,
-            "pagedown": MiniGridEnv.Actions.drop,
-            "enter": MiniGridEnv.Actions.done,
-        }
-
-        action = key_to_action[key]
-        return self.step(action)
+    def process_trace(self, sat: bool) -> None:
+        self.traces[-1] = (sat, self.traces[-1])
 
 
-def verify_action_selection_policy(
+def verify_policy(
     env_name,
-    action_selection_policy,
-    observation_function,
+    policy,
     seed=None,
-    num_trials=20,
-    timeout=100,
+    num_rruns=20,
+    max_steps=100,
     show_window=False,
-    tile_size=32,
-    agent_view=False,
-    epoch=-1,
-    use_known_error_envs=False,
+    block=False,
+    use_saved_envs=False,
 ):
-    env: MiniGridEnv = gym.make(env_name, tile_size=tile_size, max_steps=timeout)
-    if agent_view:
-        env = RGBImgPartialObsWrapper(env, tile_size)
-        env = ImgObsWrapper(env)
-
-    i = 0
-    if use_known_error_envs:
-        for saved_env in load_all_pickle(env_name + '.pkl'):
-            saved_env.max_steps = timeout
-            saved_env.step_count = 0
-            verifier = Verifier(
-                saved_env,
-                action_selection_policy,
-                observation_function,
-                seed=seed,
-                num_trials=num_trials,
-                trials=i,
-                start_env_given=True,
-                show_window=show_window,
-                agent_view=agent_view,
-                epoch=epoch
-            )
-            sat, trace = verifier.start()
-            if not sat:
-                return sat, trace
-            i += 1
-
-    verifier = Verifier(
-        env,
-        action_selection_policy,
-        observation_function,
-        seed=seed,
-        num_trials=num_trials,
-        trials=i,
-        start_env_given=False,
-        show_window=show_window,
-        agent_view=agent_view,
-        epoch=epoch
+    renv: MiniGridEnv = gym.make(env_name, tile_size=32, max_steps=max_steps)
+    env_list = (
+        list(load_list_from_pickle(env_name + "-envs.pkl")) if use_saved_envs else []
     )
-    sat, trace = verifier.start()
-    return sat, trace
+    window = Window(env_name) if show_window else None
+
+    verifier = Verify(
+        env_name=env_name,
+        renv=renv,
+        policy=policy,
+        seed=seed,
+        max_steps=max_steps,
+        window=window,
+        block=block,
+        num_rruns=num_rruns,
+        env_list=env_list,
+    )
+    sat, traces = verifier.run()
+    return sat, traces
 
 
-def verify_action_selection_policy_on_env(
-    env: MiniGridEnv,
-    action_selection_policy,
-    observation_function,
+def verify_policy_on_envs(
+    env_name,
+    env_list,
+    policy,
     seed=None,
-    timeout=100,
+    max_steps=100,
     show_window=False,
-    tile_size=32,
-    agent_view=False,
-    epoch = -1,
+    block=False,
 ):
-    env.max_steps = timeout
-    if agent_view:
-        env = RGBImgPartialObsWrapper(env, tile_size)
-        env = ImgObsWrapper(env)
+    window = Window(env_name) if show_window else None
 
-    verifier = Verifier(
-        env,
-        action_selection_policy,
-        observation_function,
+    verifier = VerifyAll(
+        env_name=env_name,
+        renv=None,
+        policy=policy,
         seed=seed,
-        num_trials=1,
-        start_env_given=True,
-        show_window=show_window,
-        agent_view=agent_view,
-        epoch=epoch
+        max_steps=max_steps,
+        window=window,
+        block=block,
+        env_list=env_list,
     )
-    sat, trace = verifier.start()
-    return sat, trace
+    sat, sat_trace_pairs = verifier.run()
+    return sat, sat_trace_pairs
 
 
 if __name__ == "__main__":
-    import argparse
-    from dsl_minigrid import feature_register
-    from asp_minigrid import (
+    from policy_minigrid import (
         ground_truth_asp_register,
-        action_selection_policy_DoorKey_wrong,
-        action_selection_policy_DoorKey_ground_truth,
+        policy_DoorKey_wrong,
     )
 
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--env-name",
-        help="gym environment to load",
-        default="MiniGrid-DoorKey-16x16-v0",
-    )
-    parser.add_argument(
-        "--seed",
-        type=int,
-        help="random seed to generate the environment with",
-        default=None,
-    )
-    parser.add_argument(
-        "--num-trials",
-        type=int,
-        help="number of trials to verify on",
-        default=5,
-    )
-    parser.add_argument(
-        "--timeout",
-        type=int,
-        help="timeout to complete the task",
-        default=100,
-    )
-    parser.add_argument(
-        "--show-window",
-        default=False,
-        help="whether to show the animation window",
-        action="store_true",
-    )
-    parser.add_argument(
-        "--tile-size", type=int, help="size at which to render tiles", default=32
-    )
-    parser.add_argument(
-        "--agent-view",
-        default=False,
-        help="draw the agent sees (partially observable view)",
-        action="store_true",
-    )
-
-    args = parser.parse_args()
-    sat, trace = verify_action_selection_policy(
-        args.env_name,
-        ground_truth_asp_register[args.env_name],
-        feature_register[args.env_name],
-        seed=args.seed,
-        num_trials=args.num_trials,
-        timeout=args.timeout,
-        show_window=args.show_window,
-        tile_size=args.tile_size,
-        agent_view=args.agent_view,
+    env_name = "MiniGrid-DoorKey-16x16-v0"
+    sat, traces = verify_policy(
+        env_name=env_name,
+        policy=ground_truth_asp_register[env_name],
+        use_saved_envs=False,
+        num_rruns=100,
     )
     print(sat)
-    if not sat:
-        for env, obs, act in trace:
-            print(obs)
-            print(f"action={act}")
-        for env, _, _ in trace:
-            print(env)
+    print(len(traces))
+    print()
 
-    print("\n\n")
-
-    args = parser.parse_args()
-    sat, trace = verify_action_selection_policy(
-        args.env_name,
-        action_selection_policy_DoorKey_wrong,
-        feature_register[args.env_name],
-        seed=args.seed,
-        num_trials=args.num_trials,
-        timeout=args.timeout,
-        show_window=args.show_window,
-        tile_size=args.tile_size,
-        agent_view=args.agent_view,
+    sat, traces = verify_policy(
+        env_name=env_name,
+        policy=policy_DoorKey_wrong,
+        use_saved_envs=False,
     )
     print(sat)
-    if not sat:
-        for env, obs, act in trace:
-            print(obs)
-            print(f"action={act}")
-        # for env, _, _ in trace:
-        #     print(env)
+    print()
+    env = traces[0][len(traces[0]) // 2][0]
+    env_list = list(load_list_from_pickle(env_name + "-envs.pkl")) + [env]
 
-    print("\n\n")
-
-    sat, trace = verify_action_selection_policy_on_env(
-        trace[-4][0],
-        action_selection_policy_DoorKey_wrong,
-        feature_register[args.env_name],
-        seed=args.seed,
-        timeout=args.timeout,
-        show_window=args.show_window,
-        tile_size=args.tile_size,
-        agent_view=args.agent_view,
+    sat, sat_trace_pairs = verify_policy_on_envs(
+        env_name=env_name,
+        env_list=env_list,
+        policy=ground_truth_asp_register[env_name],
+        show_window=True,
+        block=True,
     )
     print(sat)
-    if not sat:
-        for env, obs, act in trace:
-            print(obs)
-            print(f"action={act}")
-        # for env, _, _ in trace:
-        #     print(env)
-
-    print("\n\n")
-
-    sat, trace = verify_action_selection_policy_on_env(
-        trace[-4][0],
-        action_selection_policy_DoorKey_ground_truth,
-        feature_register[args.env_name],
-        seed=args.seed,
-        timeout=args.timeout,
-        show_window=args.show_window,
-        tile_size=args.tile_size,
-        agent_view=args.agent_view,
-    )
-    print(sat)
-    if not sat:
-        for env, obs, act in trace:
-            print(obs)
-            print(f"action={act}")
-        # for env, _, _ in trace:
-        #     print(env)
+    print([s1 for s1, _ in sat_trace_pairs])
