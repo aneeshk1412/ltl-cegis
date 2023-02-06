@@ -1,13 +1,18 @@
 #!/usr/bin/env python3
 
 import pickle
-from copy import deepcopy
+import random
+from typing import List
 from collections import defaultdict
 
+from minigrid.core.constants import ACT_KEY_TO_IDX
+
+from graph_utils import Trace
 from utils import csv_to_positive_samples_dict
 from learner_minigrid import train_policy, plot_policy
 from policy_minigrid import policy_decision_tree, feature_register
-from verifier_minigrid import verify_policy, verify_policy_on_envs
+from verifier_minigrid import verify_policy
+from dsl_minigrid import dot
 
 
 def satisfies(policy, trace):
@@ -101,10 +106,10 @@ if __name__ == "__main__":
     )
     speculated_samples = dict()
 
-    working_traces = list()
-    corrected_traces = list()
+    working_traces : List[Trace] = list()
+    corrected_traces : List[Trace] = list()
 
-    tried_action_for_states = defaultdict(set)
+    untried_samples = defaultdict(lambda : set(ACT_KEY_TO_IDX.keys()))
 
     epoch = 0
 
@@ -127,7 +132,7 @@ if __name__ == "__main__":
             use_saved_envs=True,
             show_window=args.show_window,
         )
-        if sat or epoch > 10:
+        if sat:
             break
 
         """ Main Algorithm starts here """
@@ -135,7 +140,46 @@ if __name__ == "__main__":
         working_traces, corrected_traces = get_new_working_and_corrected_traces(
             working_traces, corrected_traces, policy, traces
         )
+
+        # set_cover = defaultdict(set)
+        for i, trace in enumerate(working_traces):
+            loop = trace.get_loop()
+            if loop is None:
+                continue
+
+            loop_changeable = []
+            for t in loop:
+                _, s, a, _, _ = t
+                if s in decided_samples and decided_samples[s] == a:
+                    continue
+                if s in decided_samples:
+                    speculated_samples[s] = a
+                    continue
+                loop_changeable.append(t)
+            print(f"{len(loop_changeable) = }")
+            print()
+            ''' If len == 1 Invariant or a Loop with single changeable state due to Demos '''
+
+            for t in random.sample(loop_changeable, 1):
+                _, s, a, _, _ = loop_changeable[0]
+
+                ''' Proxy for other states with nearest satisfying formula '''
+                max_dp, max_d_s = 0, None
+                for d_s in decided_samples:
+                    if dot(d_s, s) > max_dp:
+                        max_dp = dot(d_s, s)
+                        max_d_s = d_s
+                if max_d_s:
+                    speculated_samples[s] = decided_samples[d_s]
+                else:
+                    speculated_samples[s] = random.sample(list(untried_samples[s]), 1)[0]
+
+                if speculated_samples[s] in untried_samples[s]:
+                    untried_samples[s].remove(speculated_samples[s])
+
         epoch += 1
+
+    print(f"Epochs to Completion: {epoch}")
 
     policy_model = train_policy(
         decided_samples=decided_samples,

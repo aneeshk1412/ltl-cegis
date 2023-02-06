@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+from copy import deepcopy
 import gymnasium as gym
 
 from runner_minigrid import Runner
@@ -53,7 +54,6 @@ def verify_policy(
     env_list = (
         list(load_list_from_pickle(env_name + "-envs.pkl")) if use_saved_envs else []
     )
-    window = Window(env_name) if show_window else None
 
     verifier = Verify(
         env_name=env_name,
@@ -61,12 +61,27 @@ def verify_policy(
         policy=policy,
         seed=seed,
         max_steps=max_steps,
-        window=window,
-        block=block,
+        window=None,
+        block=False,
         num_rruns=num_rruns,
         env_list=env_list,
     )
     sat, traces = verifier.run()
+    if show_window:
+        window = Window(env_name)
+        envs = [deepcopy(t[0][0]) for t in traces]
+        cex_runs = VerifyAll(
+            env_name=env_name,
+            renv=None,
+            policy=policy,
+            seed=seed,
+            max_steps=max_steps,
+            window=window,
+            block=block,
+            env_list=envs,
+        )
+        _, _ = cex_runs.run()
+        window.close()
     return sat, traces
 
 
