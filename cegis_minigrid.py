@@ -127,7 +127,7 @@ if __name__ == "__main__":
             use_saved_envs=True,
             show_window=args.show_window,
         )
-        if sat:
+        if sat or epoch > 10:
             break
 
         """ Main Algorithm starts here """

@@ -7,7 +7,7 @@ from typing import Tuple, List
 from collections import deque
 
 
-def sign(v):
+def sign(v) -> int:
     return v // abs(v) if v != 0 else 0
 
 
@@ -48,17 +48,17 @@ def bfs(env: MiniGridEnv, obj: str):
 ##
 
 
-def is_present(env: MiniGridEnv, obj: str):
+def is_present(env: MiniGridEnv, obj: str) -> bool:
     b, _ = bfs(env, obj)
     return b
 
 
-def get_nearest(env: MiniGridEnv, obj: str):
+def get_nearest(env: MiniGridEnv, obj: str) -> bool:
     _, obj_pos = bfs(env, obj)
     return obj_pos
 
 
-def check(env: MiniGridEnv, pos: Tuple[int, ...], obj: str):
+def check(env: MiniGridEnv, pos: Tuple[int, ...], obj: str) -> bool:
     c = env.grid.get(*pos)
     if c is None:
         return False
@@ -67,19 +67,25 @@ def check(env: MiniGridEnv, pos: Tuple[int, ...], obj: str):
     return c.type == obj
 
 
-def is_agent_facing(env: MiniGridEnv, pos: Tuple[int, ...]):
+def is_agent_on(env: MiniGridEnv, pos: Tuple[int, ...]) -> bool:
+    if not pos:
+        return False
+    return all(p == e for p, e in zip(pos, env.agent_pos))
+
+
+def is_agent_facing(env: MiniGridEnv, pos: Tuple[int, ...]) -> bool:
     if not pos:
         return False
     return dot(DIR_TO_VEC[env.agent_dir], sub(pos, env.agent_pos)) > 0
 
 
-def is_at_agents_left(env: MiniGridEnv, pos: Tuple[int, ...]):
+def is_at_agents_left(env: MiniGridEnv, pos: Tuple[int, ...]) -> bool:
     if not pos:
         return False
     return cross(DIR_TO_VEC[env.agent_dir], sub(pos, env.agent_pos)) < 0
 
 
-def is_at_agents_right(env: MiniGridEnv, pos: Tuple[int, ...]):
+def is_at_agents_right(env: MiniGridEnv, pos: Tuple[int, ...]) -> bool:
     if not pos:
         return False
     return cross(DIR_TO_VEC[env.agent_dir], sub(pos, env.agent_pos)) > 0
@@ -89,9 +95,9 @@ def is_at_agents_right(env: MiniGridEnv, pos: Tuple[int, ...]):
 #   Features for Decision Trees
 ##
 
-
 def extract_features_DoorKey(env: MiniGridEnv) -> Tuple[bool, ...]:
     features = (
+        is_agent_on(env, get_nearest(env, "goal")),
         is_present(env, "goal"),
         is_agent_facing(env, get_nearest(env, "goal")),
         is_at_agents_left(env, get_nearest(env, "goal")),
@@ -112,34 +118,29 @@ def extract_features_DoorKey(env: MiniGridEnv) -> Tuple[bool, ...]:
     )
     return features
 
-
-def feature_headers_DoorKey() -> List[str]:
-    headers = [
-        'is_present(env, "goal")',
-        'is_agent_facing(env, get_nearest(env, "goal"))',
-        'is_at_agents_left(env, get_nearest(env, "goal"))',
-        'is_at_agents_right(env, get_nearest(env, "goal"))',
-        'check(env, env.front_pos, "goal")',
-        'is_present(env, "door")',
-        'is_agent_facing(env, get_nearest(env, "door"))',
-        'is_at_agents_left(env, get_nearest(env, "door"))',
-        'is_at_agents_right(env, get_nearest(env, "door"))',
-        'check(env, env.front_pos, "door")',
-        'is_present(env, "key")',
-        'is_agent_facing(env, get_nearest(env, "key"))',
-        'is_at_agents_left(env, get_nearest(env, "key"))',
-        'is_at_agents_right(env, get_nearest(env, "key"))',
-        'check(env, env.front_pos, "key")',
-        'check(env, env.front_pos, "empty")',
-        'check(env, env.front_pos, "wall")',
-    ]
-    return headers
-
+header_register = {
+    "MiniGrid-DoorKey-16x16-v0": [
+        'is_agent_on(get_nearest("goal"))',
+        'is_present("goal")',
+        'is_agent_facing(get_nearest("goal"))',
+        'is_at_agents_left(get_nearest("goal"))',
+        'is_at_agents_right(get_nearest("goal"))',
+        'check(front_pos, "goal")',
+        'is_present("door")',
+        'is_agent_facing(get_nearest("door"))',
+        'is_at_agents_left(get_nearest("door"))',
+        'is_at_agents_right(get_nearest("door"))',
+        'check(front_pos, "door")',
+        'is_present("key")',
+        'is_agent_facing(get_nearest("key"))',
+        'is_at_agents_left(get_nearest("key"))',
+        'is_at_agents_right(get_nearest("key"))',
+        'check(front_pos, "key")',
+        'check(front_pos, "empty")',
+        'check(front_pos, "wall")',
+    ],
+}
 
 feature_register = {
     "MiniGrid-DoorKey-16x16-v0": extract_features_DoorKey,
-}
-
-header_register = {
-    "MiniGrid-DoorKey-16x16-v0": feature_headers_DoorKey(),
 }

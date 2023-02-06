@@ -4,6 +4,7 @@ import gymnasium as gym
 
 from runner_minigrid import Runner
 from utils import load_list_from_pickle
+from graph_utils import Trace
 
 from minigrid.utils.window import Window
 from minigrid.minigrid_env import MiniGridEnv
@@ -12,7 +13,7 @@ from minigrid.minigrid_env import MiniGridEnv
 class Verify(Runner):
     def run(self):
         super().run_internal()
-        self.traces = [t for t in self.traces if t]
+        self.traces = [Trace(t, "cex") for t in self.traces if t]
         return (self.sat, self.traces)
 
     def stopping_cond(self) -> bool:
@@ -28,6 +29,7 @@ class VerifyAll(Runner):
         super().run_internal()
         if not self.traces[-1]:
             self.traces = self.traces[:-1]
+        self.traces = [(s, Trace(t, "cex")) for s, t in self.traces]
         return (self.sat, self.traces)
 
     def stopping_cond(self) -> bool:
@@ -104,7 +106,6 @@ if __name__ == "__main__":
         env_name=env_name,
         policy=ground_truth_asp_register[env_name],
         use_saved_envs=False,
-        num_rruns=100,
     )
     print(sat)
     print(len(traces))
@@ -114,6 +115,7 @@ if __name__ == "__main__":
         env_name=env_name,
         policy=policy_DoorKey_wrong,
         use_saved_envs=False,
+        show_window=True,
     )
     print(sat)
     print()
@@ -125,7 +127,6 @@ if __name__ == "__main__":
         env_list=env_list,
         policy=ground_truth_asp_register[env_name],
         show_window=True,
-        block=True,
     )
     print(sat)
     print([s1 for s1, _ in sat_trace_pairs])
