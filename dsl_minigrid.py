@@ -118,6 +118,33 @@ def extract_features_DoorKey(env: MiniGridEnv) -> Tuple[bool, ...]:
     )
     return features
 
+def extract_features_BlockedUnlockPickup(env: MiniGridEnv) -> Tuple[bool, ...]:
+    features = (
+        is_present(env, "box"),
+        is_agent_facing(env, get_nearest(env, "box")),
+        is_at_agents_left(env, get_nearest(env, "box")),
+        is_at_agents_right(env, get_nearest(env, "box")),
+        check(env, env.front_pos, "box"),
+        is_present(env, "door"),
+        is_agent_facing(env, get_nearest(env, "door")),
+        is_at_agents_left(env, get_nearest(env, "door")),
+        is_at_agents_right(env, get_nearest(env, "door")),
+        check(env, env.front_pos, "door"),
+        is_present(env, "key"),
+        is_agent_facing(env, get_nearest(env, "key")),
+        is_at_agents_left(env, get_nearest(env, "key")),
+        is_at_agents_right(env, get_nearest(env, "key")),
+        check(env, env.front_pos, "key"),
+        is_present(env, "ball"),
+        is_agent_facing(env, get_nearest(env, "ball")),
+        is_at_agents_left(env, get_nearest(env, "ball")),
+        is_at_agents_right(env, get_nearest(env, "ball")),
+        check(env, env.front_pos, "ball"),
+        check(env, env.front_pos, "empty"),
+        check(env, env.front_pos, "wall"),
+    )
+    return features
+
 header_register = {
     "MiniGrid-DoorKey-16x16-v0": [
         'is_agent_on(get_nearest("goal"))',
@@ -139,8 +166,33 @@ header_register = {
         'check(front_pos, "empty")',
         'check(front_pos, "wall")',
     ],
+    "MiniGrid-BlockedUnlockPickup-v0": [
+        'is_present("box")',
+        'is_agent_facing(get_nearest("box"))',
+        'is_at_agents_left(get_nearest("box"))',
+        'is_at_agents_right(get_nearest("box"))',
+        'check(front_pos, "box")',
+        'is_present("door")',
+        'is_agent_facing(get_nearest("door"))',
+        'is_at_agents_left(get_nearest("door"))',
+        'is_at_agents_right(get_nearest("door"))',
+        'check(front_pos, "door")',
+        'is_present("key")',
+        'is_agent_facing(get_nearest("key"))',
+        'is_at_agents_left(get_nearest("key"))',
+        'is_at_agents_right(get_nearest("key"))',
+        'check(front_pos, "key")',
+        'is_present("ball")',
+        'is_agent_facing(get_nearest("ball"))',
+        'is_at_agents_left(get_nearest("ball"))',
+        'is_at_agents_right(get_nearest("ball"))',
+        'check(front_pos, "ball")',
+        'check(front_pos, "empty")',
+        'check(front_pos, "wall")',
+    ],
 }
 
 feature_register = {
     "MiniGrid-DoorKey-16x16-v0": extract_features_DoorKey,
+    "MiniGrid-BlockedUnlockPickup-v0": extract_features_BlockedUnlockPickup,
 }

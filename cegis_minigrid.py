@@ -145,7 +145,6 @@ if __name__ == "__main__":
         )
         base_graph.add_traces(working_traces, 'cex')
 
-        # set_cover = defaultdict(set)
         for i, trace in enumerate(working_traces):
             loop = trace.get_loop()
             if loop is None:
@@ -167,16 +166,7 @@ if __name__ == "__main__":
             for t in random.sample(loop_changeable, 1):
                 _, s, a, _, _ = loop_changeable[0]
 
-                ''' Proxy for other states with nearest satisfying formula '''
-                max_dp, max_d_s = 0, None
-                for d_s in decided_samples:
-                    if dot(d_s, s) > max_dp:
-                        max_dp = dot(d_s, s)
-                        max_d_s = d_s
-                if max_d_s:
-                    speculated_samples[s] = decided_samples[d_s]
-                else:
-                    speculated_samples[s] = random.sample(list(untried_samples[s]), 1)[0]
+                speculated_samples[s] = random.sample(list(untried_samples[s]), 1)[0]
 
                 if speculated_samples[s] in untried_samples[s]:
                     untried_samples[s].remove(speculated_samples[s])

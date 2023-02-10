@@ -44,9 +44,21 @@ def manual_control(
     demogen.run()
 
 
+def get_arguments():
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--env-name",
+        help="gym environment to load",
+        default="MiniGrid-DoorKey-16x16-v0",
+    )
+    return parser.parse_args()
+
+
 if __name__ == "__main__":
-    env_name = "MiniGrid-DoorKey-16x16-v0"
+    args = get_arguments()
 
     manual_control(
-        env_name=env_name,
+        env_name=args.env_name,
     )
