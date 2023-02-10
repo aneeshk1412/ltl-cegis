@@ -67,7 +67,7 @@ def verify_policy(
         env_list=env_list,
     )
     sat, traces = verifier.run()
-    if show_window:
+    if show_window and len(traces) > 0:
         window = Window(env_name)
         envs = [deepcopy(t[0][0]) for t in traces]
         cex_runs = VerifyAll(

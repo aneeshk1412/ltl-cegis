@@ -8,6 +8,7 @@ from collections import defaultdict
 from minigrid.core.constants import ACT_KEY_TO_IDX
 
 from graph_utils import Trace
+from transition_graph import TransitionGraph
 from utils import csv_to_positive_samples_dict
 from learner_minigrid import train_policy, plot_policy
 from policy_minigrid import policy_decision_tree, feature_register
@@ -108,6 +109,8 @@ if __name__ == "__main__":
 
     working_traces : List[Trace] = list()
     corrected_traces : List[Trace] = list()
+    base_graph = TransitionGraph(args.env_name)
+    base_graph.add_traces(positive_demos, 'demo')
 
     untried_samples = defaultdict(lambda : set(ACT_KEY_TO_IDX.keys()))
 
@@ -140,6 +143,7 @@ if __name__ == "__main__":
         working_traces, corrected_traces = get_new_working_and_corrected_traces(
             working_traces, corrected_traces, policy, traces
         )
+        base_graph.add_traces(working_traces, 'cex')
 
         # set_cover = defaultdict(set)
         for i, trace in enumerate(working_traces):
@@ -158,8 +162,8 @@ if __name__ == "__main__":
                 loop_changeable.append(t)
             print(f"{len(loop_changeable) = }")
             print()
-            ''' If len == 1 Invariant or a Loop with single changeable state due to Demos '''
 
+            ''' If len == 1 Invariant or a Loop with single changeable state due to Demos '''
             for t in random.sample(loop_changeable, 1):
                 _, s, a, _, _ = loop_changeable[0]
 
@@ -180,6 +184,7 @@ if __name__ == "__main__":
         epoch += 1
 
     print(f"Epochs to Completion: {epoch}")
+    base_graph.show_graph()
 
     policy_model = train_policy(
         decided_samples=decided_samples,
