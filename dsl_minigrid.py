@@ -179,6 +179,87 @@ def header_MultiKeyDoorKey_2() -> Tuple[str, ...]:
         *common_headers("key", "green"),
     )
 
+def features_MultiKeyDoorKey_3(env: MiniGridEnv) -> Tuple[bool, ...]:
+    features = (
+        is_agent_on(env, get_nearest(env, "goal")),
+        check(env, env.front_pos, "empty"),
+        check(env, env.front_pos, "wall"),
+        *common_features(env, "goal"),
+        *common_features(env, "door"),
+        *common_features(env, "key", "red"),
+        *common_features(env, "key", "green"),
+        *common_features(env, "key", "blue"),
+    )
+    return features
+
+def header_MultiKeyDoorKey_3() -> Tuple[str, ...]:
+    return (
+        'is_agent_on(get_nearest("goal"))',
+        'check(front_pos, "empty")',
+        'check(front_pos, "wall")',
+        *common_headers("goal"),
+        *common_headers("door"),
+        *common_headers("key", "red"),
+        *common_headers("key", "green"),
+        *common_headers("key", "blue"),
+    )
+
+def features_MultiKeyDoorKey_4(env: MiniGridEnv) -> Tuple[bool, ...]:
+    features = (
+        is_agent_on(env, get_nearest(env, "goal")),
+        check(env, env.front_pos, "empty"),
+        check(env, env.front_pos, "wall"),
+        *common_features(env, "goal"),
+        *common_features(env, "door"),
+        *common_features(env, "key", "red"),
+        *common_features(env, "key", "green"),
+        *common_features(env, "key", "blue"),
+        *common_features(env, "key", "purple"),
+    )
+    return features
+
+def header_MultiKeyDoorKey_4() -> Tuple[str, ...]:
+    return (
+        'is_agent_on(get_nearest("goal"))',
+        'check(front_pos, "empty")',
+        'check(front_pos, "wall")',
+        *common_headers("goal"),
+        *common_headers("door"),
+        *common_headers("key", "red"),
+        *common_headers("key", "green"),
+        *common_headers("key", "blue"),
+        *common_headers("key", "purple"),
+    )
+
+def features_MultiKeyDoorKey_5(env: MiniGridEnv) -> Tuple[bool, ...]:
+    features = (
+        is_agent_on(env, get_nearest(env, "goal")),
+        check(env, env.front_pos, "empty"),
+        check(env, env.front_pos, "wall"),
+        *common_features(env, "goal"),
+        *common_features(env, "door"),
+        *common_features(env, "key", "red"),
+        *common_features(env, "key", "green"),
+        *common_features(env, "key", "blue"),
+        *common_features(env, "key", "purple"),
+        *common_features(env, "key", "yellow"),
+    )
+    return features
+
+def header_MultiKeyDoorKey_5() -> Tuple[str, ...]:
+    return (
+        'is_agent_on(get_nearest("goal"))',
+        'check(front_pos, "empty")',
+        'check(front_pos, "wall")',
+        *common_headers("goal"),
+        *common_headers("door"),
+        *common_headers("key", "red"),
+        *common_headers("key", "green"),
+        *common_headers("key", "blue"),
+        *common_headers("key", "purple"),
+        *common_headers("key", "yellow"),
+    )
+
 def features_BlockedUnlockPickup(env: MiniGridEnv) -> Tuple[bool, ...]:
     features = (
         is_agent_on(env, get_nearest(env, "goal")),
@@ -206,6 +287,9 @@ header_register = {
     "MiniGrid-DoorKey-16x16-v0": header_DoorKey(),
     "MiniGrid-MultiKeyDoorKey-16x16-1": header_MultiKeyDoorKey_1(),
     "MiniGrid-MultiKeyDoorKey-16x16-2": header_MultiKeyDoorKey_2(),
+    "MiniGrid-MultiKeyDoorKey-16x16-3": header_MultiKeyDoorKey_3(),
+    "MiniGrid-MultiKeyDoorKey-16x16-4": header_MultiKeyDoorKey_4(),
+    "MiniGrid-MultiKeyDoorKey-16x16-5": header_MultiKeyDoorKey_5(),
     "MiniGrid-BlockedUnlockPickup-v0": header_BlockedUnlockPickup(),
 }
 
@@ -213,5 +297,8 @@ feature_register = {
     "MiniGrid-DoorKey-16x16-v0": features_DoorKey,
     "MiniGrid-MultiKeyDoorKey-16x16-1": features_MultiKeyDoorKey_1,
     "MiniGrid-MultiKeyDoorKey-16x16-2": features_MultiKeyDoorKey_2,
+    "MiniGrid-MultiKeyDoorKey-16x16-3": features_MultiKeyDoorKey_3,
+    "MiniGrid-MultiKeyDoorKey-16x16-4": features_MultiKeyDoorKey_4,
+    "MiniGrid-MultiKeyDoorKey-16x16-5": features_MultiKeyDoorKey_5,
     "MiniGrid-BlockedUnlockPickup-v0": features_BlockedUnlockPickup,
 }
