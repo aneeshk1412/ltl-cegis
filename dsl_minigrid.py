@@ -3,7 +3,7 @@
 from minigrid.minigrid_env import MiniGridEnv
 from minigrid.core.constants import DIR_TO_VEC
 
-from typing import Tuple, List
+from typing import Tuple
 from collections import deque
 
 
@@ -25,7 +25,7 @@ def sub(u, v):
     return tuple(ui - vi for ui, vi in zip(u, v))
 
 
-def bfs(env: MiniGridEnv, obj: str):
+def bfs(env: MiniGridEnv, obj: str, color: str | None = None):
     q = deque()
     q.append(env.agent_pos)
     vis = set()
@@ -38,7 +38,7 @@ def bfs(env: MiniGridEnv, obj: str):
         if c is None or c.type == "door" and c.is_open:
             for d in {(1, 0), (0, 1), (0, -1), (-1, 0)}:
                 q.append((x[0] + d[0], x[1] + d[1]))
-        elif c.type == obj:
+        elif c.type == obj and (color is None or c.color == color):
             return True, x
     return False, None
 
@@ -48,23 +48,23 @@ def bfs(env: MiniGridEnv, obj: str):
 ##
 
 
-def is_present(env: MiniGridEnv, obj: str) -> bool:
-    b, _ = bfs(env, obj)
+def is_present(env: MiniGridEnv, obj: str, color: str | None = None) -> bool:
+    b, _ = bfs(env, obj, color)
     return b
 
 
-def get_nearest(env: MiniGridEnv, obj: str) -> bool:
-    _, obj_pos = bfs(env, obj)
+def get_nearest(env: MiniGridEnv, obj: str, color: str | None = None) -> bool:
+    _, obj_pos = bfs(env, obj, color)
     return obj_pos
 
 
-def check(env: MiniGridEnv, pos: Tuple[int, ...], obj: str) -> bool:
+def check(env: MiniGridEnv, pos: Tuple[int, ...], obj: str, color: str | None = None) -> bool:
     c = env.grid.get(*pos)
     if c is None:
         return False
     if c.type == "door" and c.is_open:
         return False
-    return c.type == obj
+    return c.type == obj and (color is None or c.color == color)
 
 
 def is_agent_on(env: MiniGridEnv, pos: Tuple[int, ...]) -> bool:
@@ -95,104 +95,123 @@ def is_at_agents_right(env: MiniGridEnv, pos: Tuple[int, ...]) -> bool:
 #   Features for Decision Trees
 ##
 
-def extract_features_DoorKey(env: MiniGridEnv) -> Tuple[bool, ...]:
+def common_features(env: MiniGridEnv, *args):
+    return (
+        is_present(env, *args),
+        is_agent_facing(env, get_nearest(env, *args)),
+        is_at_agents_left(env, get_nearest(env, *args)),
+        is_at_agents_right(env, get_nearest(env, *args)),
+        check(env, env.front_pos, *args),
+    )
+
+def common_headers(*args):
+    val = '"' + '", "'.join(args) + '"'
+    return (
+        f'is_present({val})',
+        f'is_agent_facing(get_nearest({val}))',
+        f'is_at_agents_left(get_nearest({val}))',
+        f'is_at_agents_right(get_nearest({val}))',
+        f'check(front_pos, {val})',
+    )
+
+def features_DoorKey(env: MiniGridEnv) -> Tuple[bool, ...]:
     features = (
         is_agent_on(env, get_nearest(env, "goal")),
-        is_present(env, "goal"),
-        is_agent_facing(env, get_nearest(env, "goal")),
-        is_at_agents_left(env, get_nearest(env, "goal")),
-        is_at_agents_right(env, get_nearest(env, "goal")),
-        check(env, env.front_pos, "goal"),
-        is_present(env, "door"),
-        is_agent_facing(env, get_nearest(env, "door")),
-        is_at_agents_left(env, get_nearest(env, "door")),
-        is_at_agents_right(env, get_nearest(env, "door")),
-        check(env, env.front_pos, "door"),
-        is_present(env, "key"),
-        is_agent_facing(env, get_nearest(env, "key")),
-        is_at_agents_left(env, get_nearest(env, "key")),
-        is_at_agents_right(env, get_nearest(env, "key")),
-        check(env, env.front_pos, "key"),
         check(env, env.front_pos, "empty"),
         check(env, env.front_pos, "wall"),
+        *common_features(env, "goal"),
+        *common_features(env, "door"),
+        *common_features(env, "key"),
     )
     return features
 
-def extract_features_BlockedUnlockPickup(env: MiniGridEnv) -> Tuple[bool, ...]:
+def header_DoorKey() -> Tuple[str, ...]:
+    return (
+        'is_agent_on(get_nearest("goal"))',
+        'check(front_pos, "empty")',
+        'check(front_pos, "wall")',
+        *common_headers("goal"),
+        *common_headers("door"),
+        *common_headers("key"),
+    )
+
+def features_MultiKeyDoorKey_1(env: MiniGridEnv) -> Tuple[bool, ...]:
     features = (
-        is_present(env, "box"),
-        is_agent_facing(env, get_nearest(env, "box")),
-        is_at_agents_left(env, get_nearest(env, "box")),
-        is_at_agents_right(env, get_nearest(env, "box")),
-        check(env, env.front_pos, "box"),
-        is_present(env, "door"),
-        is_agent_facing(env, get_nearest(env, "door")),
-        is_at_agents_left(env, get_nearest(env, "door")),
-        is_at_agents_right(env, get_nearest(env, "door")),
-        check(env, env.front_pos, "door"),
-        is_present(env, "key"),
-        is_agent_facing(env, get_nearest(env, "key")),
-        is_at_agents_left(env, get_nearest(env, "key")),
-        is_at_agents_right(env, get_nearest(env, "key")),
-        check(env, env.front_pos, "key"),
-        is_present(env, "ball"),
-        is_agent_facing(env, get_nearest(env, "ball")),
-        is_at_agents_left(env, get_nearest(env, "ball")),
-        is_at_agents_right(env, get_nearest(env, "ball")),
-        check(env, env.front_pos, "ball"),
+        is_agent_on(env, get_nearest(env, "goal")),
         check(env, env.front_pos, "empty"),
         check(env, env.front_pos, "wall"),
+        *common_features(env, "goal"),
+        *common_features(env, "door"),
+        *common_features(env, "key", "red"),
     )
     return features
+
+def header_MultiKeyDoorKey_1() -> Tuple[str, ...]:
+    return (
+        'is_agent_on(get_nearest("goal"))',
+        'check(front_pos, "empty")',
+        'check(front_pos, "wall")',
+        *common_headers("goal"),
+        *common_headers("door"),
+        *common_headers("key", "red"),
+    )
+
+def features_MultiKeyDoorKey_2(env: MiniGridEnv) -> Tuple[bool, ...]:
+    features = (
+        is_agent_on(env, get_nearest(env, "goal")),
+        check(env, env.front_pos, "empty"),
+        check(env, env.front_pos, "wall"),
+        *common_features(env, "goal"),
+        *common_features(env, "door"),
+        *common_features(env, "key", "red"),
+        *common_features(env, "key", "green"),
+    )
+    return features
+
+def header_MultiKeyDoorKey_2() -> Tuple[str, ...]:
+    return (
+        'is_agent_on(get_nearest("goal"))',
+        'check(front_pos, "empty")',
+        'check(front_pos, "wall")',
+        *common_headers("goal"),
+        *common_headers("door"),
+        *common_headers("key", "red"),
+        *common_headers("key", "green"),
+    )
+
+def features_BlockedUnlockPickup(env: MiniGridEnv) -> Tuple[bool, ...]:
+    features = (
+        is_agent_on(env, get_nearest(env, "goal")),
+        check(env, env.front_pos, "empty"),
+        check(env, env.front_pos, "wall"),
+        *common_features(env, "goal"),
+        *common_features(env, "door"),
+        *common_features(env, "key"),
+        *common_features(env, "ball"),
+    )
+    return features
+
+def header_BlockedUnlockPickup() -> Tuple[str, ...]:
+    return (
+        'is_agent_on(get_nearest("goal"))',
+        'check(front_pos, "empty")',
+        'check(front_pos, "wall")',
+        *common_headers("goal"),
+        *common_headers("door"),
+        *common_headers("key"),
+        *common_headers("ball"),
+    )
 
 header_register = {
-    "MiniGrid-DoorKey-16x16-v0": [
-        'is_agent_on(get_nearest("goal"))',
-        'is_present("goal")',
-        'is_agent_facing(get_nearest("goal"))',
-        'is_at_agents_left(get_nearest("goal"))',
-        'is_at_agents_right(get_nearest("goal"))',
-        'check(front_pos, "goal")',
-        'is_present("door")',
-        'is_agent_facing(get_nearest("door"))',
-        'is_at_agents_left(get_nearest("door"))',
-        'is_at_agents_right(get_nearest("door"))',
-        'check(front_pos, "door")',
-        'is_present("key")',
-        'is_agent_facing(get_nearest("key"))',
-        'is_at_agents_left(get_nearest("key"))',
-        'is_at_agents_right(get_nearest("key"))',
-        'check(front_pos, "key")',
-        'check(front_pos, "empty")',
-        'check(front_pos, "wall")',
-    ],
-    "MiniGrid-BlockedUnlockPickup-v0": [
-        'is_present("box")',
-        'is_agent_facing(get_nearest("box"))',
-        'is_at_agents_left(get_nearest("box"))',
-        'is_at_agents_right(get_nearest("box"))',
-        'check(front_pos, "box")',
-        'is_present("door")',
-        'is_agent_facing(get_nearest("door"))',
-        'is_at_agents_left(get_nearest("door"))',
-        'is_at_agents_right(get_nearest("door"))',
-        'check(front_pos, "door")',
-        'is_present("key")',
-        'is_agent_facing(get_nearest("key"))',
-        'is_at_agents_left(get_nearest("key"))',
-        'is_at_agents_right(get_nearest("key"))',
-        'check(front_pos, "key")',
-        'is_present("ball")',
-        'is_agent_facing(get_nearest("ball"))',
-        'is_at_agents_left(get_nearest("ball"))',
-        'is_at_agents_right(get_nearest("ball"))',
-        'check(front_pos, "ball")',
-        'check(front_pos, "empty")',
-        'check(front_pos, "wall")',
-    ],
+    "MiniGrid-DoorKey-16x16-v0": header_DoorKey(),
+    "MiniGrid-MultiKeyDoorKey-16x16-1": header_MultiKeyDoorKey_1(),
+    "MiniGrid-MultiKeyDoorKey-16x16-2": header_MultiKeyDoorKey_2(),
+    "MiniGrid-BlockedUnlockPickup-v0": header_BlockedUnlockPickup(),
 }
 
 feature_register = {
-    "MiniGrid-DoorKey-16x16-v0": extract_features_DoorKey,
-    "MiniGrid-BlockedUnlockPickup-v0": extract_features_BlockedUnlockPickup,
+    "MiniGrid-DoorKey-16x16-v0": features_DoorKey,
+    "MiniGrid-MultiKeyDoorKey-16x16-1": features_MultiKeyDoorKey_1,
+    "MiniGrid-MultiKeyDoorKey-16x16-2": features_MultiKeyDoorKey_2,
+    "MiniGrid-BlockedUnlockPickup-v0": features_BlockedUnlockPickup,
 }

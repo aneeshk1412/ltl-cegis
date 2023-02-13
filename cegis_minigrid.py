@@ -5,7 +5,7 @@ import random
 from typing import List
 from collections import defaultdict
 
-from minigrid.core.constants import ACT_KEY_TO_IDX
+from minigrid.core.constants import ACT_SET
 
 from graph_utils import Trace
 from transition_graph import TransitionGraph
@@ -13,7 +13,6 @@ from utils import csv_to_positive_samples_dict
 from learner_minigrid import train_policy, plot_policy
 from policy_minigrid import policy_decision_tree, feature_register
 from verifier_minigrid import verify_policy
-from dsl_minigrid import dot
 
 
 def satisfies(policy, trace):
@@ -112,7 +111,7 @@ if __name__ == "__main__":
     base_graph = TransitionGraph(args.env_name)
     base_graph.add_traces(positive_demos, 'demo')
 
-    untried_samples = defaultdict(lambda : set(ACT_KEY_TO_IDX.keys()))
+    untried_samples = defaultdict(lambda : set(act for act in ACT_SET))
 
     epoch = 0
 

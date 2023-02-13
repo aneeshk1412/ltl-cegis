@@ -5,7 +5,7 @@ from collections import defaultdict
 from pyvis.network import Network
 import networkx as nx
 
-from minigrid.core.constants import ACT_KEY_TO_IDX
+from minigrid.core.constants import ACT_SET
 from dsl_minigrid import header_register
 
 
@@ -93,7 +93,7 @@ class TransitionGraph(object):
                 tried_actions_for_states[state].update(nbrsdict[s].keys())
         for state in speculate_states:
             speculated_samples[state] = random.sample(
-                [a for a in ACT_KEY_TO_IDX.keys() if a not in tried_actions_for_states[state]], 1)[0]
+                [a for a in ACT_SET if a not in tried_actions_for_states[state]], 1)[0]
             tried_actions_for_states[state].add(speculated_samples[state])
         return speculated_samples, tried_actions_for_states
 
