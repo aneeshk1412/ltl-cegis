@@ -27,7 +27,7 @@ def demos_to_positive_samples_csv(demos, env_name: str):
     df = pd.DataFrame(
         list(set(tuple(list(s) + [a])
              for trace in demos for _, s, a, _, _ in trace)),
-        columns=header_register[env_name] + ["action"],
+        columns=header_register[env_name] + tuple(["action"]),
     )
     df.to_csv(env_name + "-demos.csv", index=False)
 
