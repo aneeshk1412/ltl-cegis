@@ -121,7 +121,7 @@ class Runner(object):
             self.window.close()
         return self.stopping_cond()
 
-    def redraw(self) -> None:
+    def redraw(self, key=None) -> None:
         if self.window:
             frame = self.env.get_frame(agent_pov=False)
             state = self.obs_func(self.env)
@@ -130,7 +130,7 @@ class Runner(object):
                     [self.headers[i] for i in range(len(state)) if state[i]], "\n", 2
                 )
             )
-            self.window.set_caption(caption)
+            self.window.set_caption(f"Action: {key}\n" + caption)
             self.window.show_img(frame)
 
     def save_env(self) -> None:
@@ -166,7 +166,7 @@ class Runner(object):
             self.process_trace(True)
             return self.reset()
         else:
-            self.redraw()
+            self.redraw(key)
             return True
 
     def key_handler(self, event=None) -> bool:

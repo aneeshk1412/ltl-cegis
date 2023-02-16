@@ -63,7 +63,7 @@ def get_arguments():
         "--verifier-seed",
         type=int,
         help="random seed for the model checker",
-        default=None,
+        default=100,
     )
     parser.add_argument(
         "--num-rruns",
@@ -78,7 +78,7 @@ def get_arguments():
         "--learner-seed",
         type=int,
         help="random seed for the learning algorithm",
-        default=100,
+        default=1,
     )
     parser.add_argument(
         "--plot-policy",
@@ -111,11 +111,12 @@ if __name__ == "__main__":
     base_graph = TransitionGraph(args.env_name)
     base_graph.add_traces(positive_demos, 'demo')
 
-    untried_samples = defaultdict(lambda : set(act for act in ACT_SET))
+    possible_actions_for_state = defaultdict(lambda : set(act for act in ACT_SET))
 
     epoch = 0
 
     while True:
+        working_traces.sort(key=lambda x: len(x.get_loop()))
         policy_model = train_policy(
             decided_samples=decided_samples,
             speculated_samples=speculated_samples,
@@ -131,10 +132,20 @@ if __name__ == "__main__":
             seed=args.verifier_seed,
             num_rruns=args.num_rruns,
             max_steps=args.max_steps,
-            use_saved_envs=True,
+            use_saved_envs=False,
             show_window=args.show_window,
         )
         if sat:
+            sat, traces = verify_policy(
+                env_name=args.env_name,
+                policy=policy,
+                seed=args.verifier_seed,
+                num_rruns=args.num_rruns,
+                max_steps=args.max_steps,
+                use_saved_envs=False,
+                show_window=args.show_window,
+            )
+            print(f"Checking across all Environments Gives : {sat}")
             break
 
         """ Main Algorithm starts here """
@@ -155,21 +166,29 @@ if __name__ == "__main__":
                 if s in decided_samples and decided_samples[s] == a:
                     continue
                 if s in decided_samples:
-                    speculated_samples[s] = a
-                    continue
+                    raise Exception("A demo sample was trained incorrectly")
                 loop_changeable.append(t)
             print(f"{len(loop_changeable) = }")
-            print()
 
-            ''' If len == 1 Invariant or a Loop with single changeable state due to Demos '''
-            for t in random.sample(loop_changeable, 1):
+            if len(loop_changeable) == 1:
+                ''' Invariant or a Loop with single changeable state (because all others are fixed by demos)
+                    Remove this action from possibilities from this state.
+                    This update is complete, and guaranteed to terminate.
+                '''
                 _, s, a, _, _ = loop_changeable[0]
+                possible_actions_for_state[s].remove(a)
+                speculated_samples[s] = random.sample(list(possible_actions_for_state[s]), 1)[0]
+            else:
+                pass
+                # for t in random.sample(loop_changeable, 1):
+                #     _, s, a, _, _ = loop_changeable[0]
 
-                speculated_samples[s] = random.sample(list(untried_samples[s]), 1)[0]
+                #     speculated_samples[s] = random.sample(list(possible_actions_for_state[s]), 1)[0]
 
-                if speculated_samples[s] in untried_samples[s]:
-                    untried_samples[s].remove(speculated_samples[s])
+                #     if speculated_samples[s] in possible_actions_for_state[s]:
+                #         possible_actions_for_state[s].remove(speculated_samples[s])
 
+        print()
         epoch += 1
 
     print(f"Epochs to Completion: {epoch}")

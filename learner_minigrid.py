@@ -30,6 +30,8 @@ def train_policy(
         max_leaf_nodes=None,
     )
     policy = model.fit(states, actions)
+    assert all(model.predict(pd.DataFrame([state]))[0] == act for state, act in decided_samples.items())
+    assert all(model.predict(pd.DataFrame([state]))[0] == act for state, act in speculated_samples.items())
     if save:
         with open("model.pkl", "wb") as f:
             pickle.dump(policy, f)

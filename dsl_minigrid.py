@@ -27,7 +27,10 @@ def sub(u, v):
 
 def bfs(env: MiniGridEnv, obj: str, color: str | None = None):
     q = deque()
-    q.append(env.agent_pos)
+    if isinstance(env.agent_pos, tuple):
+        q.append(env.agent_pos)
+    else:
+        q.append(tuple([env.agent_pos[0], env.agent_pos[1]]))
     vis = set()
     while len(q):
         x = q.popleft()
@@ -112,6 +115,26 @@ def common_headers(*args):
         f'is_at_agents_left(get_nearest({val}))',
         f'is_at_agents_right(get_nearest({val}))',
         f'check(front_pos, {val})',
+    )
+
+
+def features_LavaGap(env: MiniGridEnv) -> Tuple[bool, ...]:
+    features = (
+        is_agent_on(env, get_nearest(env, "goal")),
+        check(env, env.front_pos, "empty"),
+        check(env, env.front_pos, "wall"),
+        check(env, env.front_pos, "lava"),
+        *common_features(env, "goal"),
+    )
+    return features
+
+def header_LavaGap() -> Tuple[str, ...]:
+    return (
+        'is_agent_on(get_nearest("goal"))',
+        'check(front_pos, "empty")',
+        'check(front_pos, "wall")',
+        'check(front_pos, "lava")',
+        *common_headers("goal"),
     )
 
 def features_DoorKey(env: MiniGridEnv) -> Tuple[bool, ...]:
@@ -284,6 +307,7 @@ def header_BlockedUnlockPickup() -> Tuple[str, ...]:
     )
 
 header_register = {
+    "MiniGrid-LavaGapS7-v0": header_LavaGap(),
     "MiniGrid-DoorKey-16x16-v0": header_DoorKey(),
     "MiniGrid-MultiKeyDoorKey-16x16-1": header_MultiKeyDoorKey_1(),
     "MiniGrid-MultiKeyDoorKey-16x16-2": header_MultiKeyDoorKey_2(),
@@ -294,6 +318,7 @@ header_register = {
 }
 
 feature_register = {
+    "MiniGrid-LavaGapS7-v0": features_LavaGap,
     "MiniGrid-DoorKey-16x16-v0": features_DoorKey,
     "MiniGrid-MultiKeyDoorKey-16x16-1": features_MultiKeyDoorKey_1,
     "MiniGrid-MultiKeyDoorKey-16x16-2": features_MultiKeyDoorKey_2,

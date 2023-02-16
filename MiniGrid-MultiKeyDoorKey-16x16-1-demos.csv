@@ -1,0 +1,10 @@
+"is_agent_on(get_nearest(""goal""))","check(front_pos, ""empty"")","check(front_pos, ""wall"")","is_present(""goal"")","is_agent_facing(get_nearest(""goal""))","is_at_agents_left(get_nearest(""goal""))","is_at_agents_right(get_nearest(""goal""))","check(front_pos, ""goal"")","is_present(""door"")","is_agent_facing(get_nearest(""door""))","is_at_agents_left(get_nearest(""door""))","is_at_agents_right(get_nearest(""door""))","check(front_pos, ""door"")","is_present(""key"", ""red"")","is_agent_facing(get_nearest(""key"", ""red""))","is_at_agents_left(get_nearest(""key"", ""red""))","is_at_agents_right(get_nearest(""key"", ""red""))","check(front_pos, ""key"", ""red"")",action
+False,False,True,True,False,False,True,False,False,False,False,False,False,False,False,False,False,False,right
+False,False,False,False,False,False,False,False,False,False,False,False,False,True,True,False,False,True,pageup
+False,False,False,True,True,False,False,True,False,False,False,False,False,False,False,False,False,False,up
+False,False,False,False,False,False,False,False,False,False,False,False,False,True,True,False,False,False,up
+False,False,False,False,False,False,False,False,True,True,False,False,True,False,False,False,False,False, 
+False,False,False,False,False,False,False,False,True,True,False,True,False,False,False,False,False,False,up
+False,False,False,True,True,False,True,False,False,False,False,False,False,False,False,False,False,False,up
+False,False,False,True,True,False,False,False,False,False,False,False,False,False,False,False,False,False,up
+False,False,True,False,False,False,False,False,True,False,False,True,False,False,False,False,False,False,right
