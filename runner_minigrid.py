@@ -11,7 +11,7 @@ from minigrid.utils.window import Window
 from minigrid.minigrid_env import MiniGridEnv
 
 
-def implies(b1, b2):
+def implies(b1: bool, b2: bool) -> bool:
     return not b1 or b2
 
 
@@ -29,7 +29,7 @@ class Runner(object):
         env_list: List[MiniGridEnv] = [],
     ) -> None:
         self.renv = renv
-        self.env = None
+        self.env : MiniGridEnv | None = None
         self.env_name = env_name
         self.env_list = env_list
         self.policy = policy
@@ -40,13 +40,14 @@ class Runner(object):
         self.seed = seed
         self.max_steps = max_steps
         self.num_rruns = num_rruns
+        self.num_runs : int | None = 0
         if self.renv is None:
             self.num_runs = len(env_list)
         elif self.num_rruns is None:
             self.num_runs = None
         else:
             self.num_runs = len(env_list) + self.num_rruns
-        self.cur_run = 0
+        self.cur_run : int = 0
 
         assert implies(not self.block, self.policy is not None)
         assert implies(self.block, self.window is not None)
