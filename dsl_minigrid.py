@@ -117,6 +117,22 @@ def common_headers(*args):
         f'check(front_pos, {val})',
     )
 
+def features_Empty(env: MiniGridEnv) -> Tuple[bool, ...]:
+    features = (
+        is_agent_on(env, get_nearest(env, "goal")),
+        check(env, env.front_pos, "empty"),
+        check(env, env.front_pos, "wall"),
+        *common_features(env, "goal"),
+    )
+    return features
+
+def header_Empty() -> Tuple[str, ...]:
+    return (
+        'is_agent_on(get_nearest("goal"))',
+        'check(front_pos, "empty")',
+        'check(front_pos, "wall")',
+        *common_headers("goal"),
+    )
 
 def features_LavaGap(env: MiniGridEnv) -> Tuple[bool, ...]:
     features = (
@@ -307,6 +323,7 @@ def header_BlockedUnlockPickup() -> Tuple[str, ...]:
     )
 
 header_register = {
+    "MiniGrid-Empty-Random-6x6-v0": header_Empty(),
     "MiniGrid-LavaGapS7-v0": header_LavaGap(),
     "MiniGrid-DoorKey-16x16-v0": header_DoorKey(),
     "MiniGrid-MultiKeyDoorKey-16x16-1": header_MultiKeyDoorKey_1(),
@@ -318,6 +335,7 @@ header_register = {
 }
 
 feature_register = {
+    "MiniGrid-Empty-Random-6x6-v0": features_Empty,
     "MiniGrid-LavaGapS7-v0": features_LavaGap,
     "MiniGrid-DoorKey-16x16-v0": features_DoorKey,
     "MiniGrid-MultiKeyDoorKey-16x16-1": features_MultiKeyDoorKey_1,

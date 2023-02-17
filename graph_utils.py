@@ -33,6 +33,14 @@ def bitstring_to_string(s: str, env_name: str) -> str:
 Transition = Tuple[MiniGridEnv, Tuple[bool, ...], str, MiniGridEnv, Tuple[bool, ...]]
 
 
+def abstract_trace(trace: List[Transition]):
+    prev_state = None
+    for _, s, a, _, s_n in trace:
+        if not prev_state or prev_state != (s, a, s_n):
+            yield (s, a, s_n)
+        prev_state = (s, a, s_n)
+
+
 class Trace(object):
     def __init__(self, trace: List[Transition], type: str) -> None:
         self.trace = trace
@@ -44,7 +52,7 @@ class Trace(object):
     def __getitem__(self, index):
         return self.trace[index]
 
-    def get_loop(self):
+    def get_stem(self):
         stem, _ = self.get_stem_and_loop()
         return stem
 
@@ -63,6 +71,18 @@ class Trace(object):
             except ValueError:
                 continue
         return Trace(self.trace, self.type), None
+
+    def get_abstract_trace(self):
+        yield from abstract_trace(self.trace)
+
+    def get_abstract_stem(self):
+        stem = self.get_stem()
+        yield from abstract_trace(stem)
+
+    def get_abstract_loop(self):
+        loop = self.get_loop()
+        yield from abstract_trace(loop)
+
 
 
 class TransitionGraph(object):

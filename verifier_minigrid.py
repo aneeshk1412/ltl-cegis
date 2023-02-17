@@ -104,7 +104,7 @@ def verify_policy_on_envs(
         max_steps=max_steps,
         window=window,
         block=block,
-        env_list=env_list,
+        env_list=[deepcopy(e) for e in env_list],
     )
     sat, sat_trace_pairs = verifier.run()
     return sat, sat_trace_pairs

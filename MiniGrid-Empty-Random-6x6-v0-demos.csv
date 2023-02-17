@@ -1,0 +1,2 @@
+"is_agent_on(get_nearest(""goal""))","check(front_pos, ""empty"")","check(front_pos, ""wall"")","is_present(""goal"")","is_agent_facing(get_nearest(""goal""))","is_at_agents_left(get_nearest(""goal""))","is_at_agents_right(get_nearest(""goal""))","check(front_pos, ""goal"")",action
+False,False,False,True,True,True,False,False,up
