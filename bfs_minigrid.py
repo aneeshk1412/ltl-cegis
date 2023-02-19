@@ -8,9 +8,9 @@ from collections import defaultdict, deque
 from minigrid.core.constants import ACT_SET
 
 from graph_utils import Trace
-from utils import csv_to_positive_samples_dict
+from utils import csv_to_positive_samples_dict, intersperse
 from learner_minigrid import train_policy, plot_policy
-from policy_minigrid import policy_decision_tree, feature_register
+from policy_minigrid import policy_decision_tree, feature_register, header_register
 from verifier_minigrid import verify_policy, verify_policy_on_envs
 
 
@@ -25,10 +25,10 @@ def correct_single_trace(trace: Trace, policy, decided_samples, env_name):
     while len(trace_queue):
         current_trace, current_ss = trace_queue.popleft()
         cond = lambda d, s, a: s in d and d[s] == a
-        if all(cond(decided_samples, s, a) or cond(current_ss, s, a) for s, a, _ in current_trace.get_abstract_loop()):
+        if all(cond(decided_samples, s, a) or cond(current_ss, s, a) for _, s, a, _, _ in current_trace.get_abstract_loop()):
             ## This ss is unsatisfiable
             continue
-        for s, a, _ in current_trace.get_abstract_loop():
+        for e, s, a, _, _ in current_trace.get_abstract_loop():
             if s in decided_samples:
                 assert decided_samples[s] == a
                 continue
@@ -42,16 +42,16 @@ def correct_single_trace(trace: Trace, policy, decided_samples, env_name):
                 new_policy = lambda env: new_ss[feature_register[env_name](env)] if feature_register[env_name](env) in new_ss else policy(env)
                 sat, sat_trace_pairs = verify_policy_on_envs(
                     env_name=env_name,
-                    env_list=[env],
+                    env_list=[e],
                     policy=new_policy,
                     show_window=False,
                 )
                 if sat:
-                    print(f"Satisfying Speculation Set: {new_ss}")
                     print(f"Number of Traces added before correcting this trace: {num_traces}")
+                    print()
                     return new_ss
 
-                print(f"Adding {new_ss}")
+                print(f"Number of Traces till now {num_traces}", end='\r')
                 num_traces += 1
                 trace_queue.append((sat_trace_pairs[0][1], deepcopy(new_ss)))
 
@@ -189,7 +189,18 @@ if __name__ == "__main__":
             working_traces, corrected_traces, policy, traces
         )
         suggested_samples = correct_single_trace(working_traces[0], policy=policy, decided_samples=decided_samples, env_name=args.env_name)
-        if set(suggested_samples.keys()) & set(speculated_samples.keys()):
+        flag = False
+        for s in set(suggested_samples.keys()) & set(speculated_samples.keys()):
+            if suggested_samples[s] != speculated_samples[s]:
+                caption = "    ".join(
+                    intersperse(
+                        [header_register[args.env_name][i] for i in range(len(s)) if s[i]], "\n", 2
+                    )
+                )
+                print(f"State: {caption}")
+                print(f"Unmatched : {suggested_samples[s] = }, {speculated_samples[s] = }")
+                flag = True
+        if flag:
             raise Exception("Newly Suggested Samples differ from Speculated Samples till the Last Iteration")
         speculated_samples.update(suggested_samples)
         epoch += 1

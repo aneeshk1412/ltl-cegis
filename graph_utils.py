@@ -35,10 +35,10 @@ Transition = Tuple[MiniGridEnv, Tuple[bool, ...], str, MiniGridEnv, Tuple[bool, 
 
 def abstract_trace(trace: List[Transition]):
     prev_state = None
-    for _, s, a, _, s_n in trace:
+    for e, s, a, e_n, s_n in trace:
         if not prev_state or prev_state != (s, a, s_n):
-            yield (s, a, s_n)
-        prev_state = (s, a, s_n)
+            yield (e, s, a, e_n, s_n)
+        prev_state = (e, s, a, e_n, s_n)
 
 
 class Trace(object):
@@ -73,7 +73,8 @@ class Trace(object):
         return Trace(self.trace, self.type), None
 
     def get_abstract_trace(self):
-        yield from abstract_trace(self.trace)
+        tr = list(abstract_trace(self.trace))
+        yield from reversed(tr)
 
     def get_abstract_stem(self):
         stem = self.get_stem()
