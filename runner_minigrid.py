@@ -93,14 +93,14 @@ class Runner(object):
                 )
                 return self.env_list[self.cur_run - 1]
             elif self.renv is not None:
-                self.renv.reset(seed=None)
+                self.renv.reset(seed=self.seed)
                 self.renv.soft_reset(seed=self.seed, max_steps=self.max_steps)
                 return self.renv
             else:
                 return None
         else:
             if self.cur_run <= self.num_rruns:
-                self.renv.reset(seed=None)
+                self.renv.reset(seed=self.seed)
                 self.renv.soft_reset(seed=self.seed, max_steps=self.max_steps)
                 return self.renv
             elif self.cur_run <= self.num_rruns + len(self.env_list):

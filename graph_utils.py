@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import random
+from copy import deepcopy
 import networkx as nx
 from pyvis.network import Network
 
@@ -42,8 +43,8 @@ def abstract_trace(trace: List[Transition]):
 
 
 class Trace(object):
-    def __init__(self, trace: List[Transition], type: str) -> None:
-        self.trace = trace
+    def __init__(self, trace: List[Transition], type: str = None) -> None:
+        self.trace = deepcopy(trace)
         self.type = type
 
     def __len__(self):

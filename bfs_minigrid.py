@@ -19,7 +19,6 @@ def satisfies(policy, trace):
 
 
 def correct_single_trace(trace: Trace, policy, decided_samples, env_name):
-    env, _, _, _, _ = trace[0]
     trace_queue = deque([(trace, dict())])
     num_traces = 1
     while len(trace_queue):
@@ -36,10 +35,11 @@ def correct_single_trace(trace: Trace, policy, decided_samples, env_name):
                 assert current_ss[s] == a
                 continue
 
-            for a_p in ACT_SET - set([a]):
+            for a_p in sorted(ACT_SET - set([a])):
                 new_ss = dict((si, ai) for si, ai in current_ss.items())
                 new_ss[s] = a_p
                 new_policy = lambda env: new_ss[feature_register[env_name](env)] if feature_register[env_name](env) in new_ss else policy(env)
+                # print(f"{new_ss}")
                 sat, sat_trace_pairs = verify_policy_on_envs(
                     env_name=env_name,
                     env_list=[e],
@@ -47,11 +47,12 @@ def correct_single_trace(trace: Trace, policy, decided_samples, env_name):
                     show_window=False,
                 )
                 if sat:
-                    print(f"Number of Traces added before correcting this trace: {num_traces}")
-                    print()
+                    print(f"{num_traces}")
+                    # print(f"Number of Traces added before correcting this trace: {num_traces}")
+                    # print()
                     return new_ss
 
-                print(f"Number of Traces till now {num_traces}", end='\r')
+                # print(f"Number of Traces till now {num_traces}", end='\r')
                 num_traces += 1
                 trace_queue.append((sat_trace_pairs[0][1], deepcopy(new_ss)))
 
@@ -59,14 +60,14 @@ def correct_single_trace(trace: Trace, policy, decided_samples, env_name):
 def get_new_working_and_corrected_traces(
     working_traces, corrected_traces, policy, new_traces
 ):
-    print(f"Number of new traces: {len(new_traces)}")
+    # print(f"Number of new traces: {len(new_traces)}")
 
     work_to_correct = [
         trace for trace in working_traces if not satisfies(policy, trace)
     ]
     correct_to_work = [trace for trace in corrected_traces if satisfies(policy, trace)]
-    print(f"Number of traces moved from Working to Corrected: {len(work_to_correct)}")
-    print(f"Number of traces moved from Corrected to Working: {len(correct_to_work)}")
+    # print(f"Number of traces moved from Working to Corrected: {len(work_to_correct)}")
+    # print(f"Number of traces moved from Corrected to Working: {len(correct_to_work)}")
 
     new_working_traces = (
         [trace for trace in working_traces if satisfies(policy, trace)]
@@ -76,8 +77,8 @@ def get_new_working_and_corrected_traces(
     new_corrected_traces = work_to_correct + [
         trace for trace in corrected_traces if not satisfies(policy, trace)
     ]
-    print(f"{len(new_working_traces) = } {len(new_corrected_traces) = }")
-    print()
+    # print(f"{len(new_working_traces) = } {len(new_corrected_traces) = }")
+    # print()
     return new_working_traces, new_corrected_traces
 
 
@@ -100,13 +101,13 @@ def get_arguments():
         "--verifier-seed",
         type=int,
         help="random seed for the model checker",
-        default=None,
+        default=100,
     )
     parser.add_argument(
         "--num-rruns",
         type=int,
         help="number of random runs to verify on",
-        default=100,
+        default=1,
     )
     """ TODO: Currently the learner might produce different decision trees
         for the same training data. So the learner has been seeded.
@@ -115,7 +116,7 @@ def get_arguments():
         "--learner-seed",
         type=int,
         help="random seed for the learning algorithm",
-        default=1,
+        default=100,
     )
     parser.add_argument(
         "--plot-policy",
@@ -170,17 +171,17 @@ if __name__ == "__main__":
             use_saved_envs=False,
             show_window=args.show_window,
         )
-        if sat:
-            sat, traces = verify_policy(
-                env_name=args.env_name,
-                policy=policy,
-                seed=args.verifier_seed,
-                num_rruns=300,
-                max_steps=args.max_steps,
-                use_saved_envs=False,
-                show_window=args.show_window,
-            )
-            print(f"Checking across all Environments Gives : {sat}")
+        if sat or epoch > 0:
+            # sat, traces = verify_policy(
+            #     env_name=args.env_name,
+            #     policy=policy,
+            #     seed=args.verifier_seed,
+            #     num_rruns=300,
+            #     max_steps=args.max_steps,
+            #     use_saved_envs=False,
+            #     show_window=args.show_window,
+            # )
+            # print(f"Checking across all Environments Gives : {sat}")
             break
 
         """ Main Algorithm starts here """
@@ -205,7 +206,7 @@ if __name__ == "__main__":
         speculated_samples.update(suggested_samples)
         epoch += 1
 
-    print(f"Epochs to Completion: {epoch}")
+    # print(f"Epochs to Completion: {epoch}")
 
     policy_model = train_policy(
         decided_samples=decided_samples,
