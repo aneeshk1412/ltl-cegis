@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import pickle
+from random import Random
 from copy import deepcopy
 from typing import Callable, List
 
@@ -38,6 +39,7 @@ class Runner(object):
         self.window = window
         self.block = block
         self.seed = seed
+        self.rng = Random(self.seed)
         self.max_steps = max_steps
         self.num_rruns = num_rruns
         self.num_runs : int | None = 0
@@ -79,8 +81,8 @@ class Runner(object):
         if not self.block:
             while self.step(None):
                 pass
-            if self.window:
-                self.window.close()
+        if self.window:
+            self.window.close()
 
     def stopping_cond(self) -> bool:
         raise NotImplementedError()
@@ -93,14 +95,14 @@ class Runner(object):
                 )
                 return self.env_list[self.cur_run - 1]
             elif self.renv is not None:
-                self.renv.reset(seed=self.seed)
+                self.renv.reset(seed=self.rng.randrange(int(1e10)))
                 self.renv.soft_reset(seed=self.seed, max_steps=self.max_steps)
                 return self.renv
             else:
                 return None
         else:
             if self.cur_run <= self.num_rruns:
-                self.renv.reset(seed=self.seed)
+                self.renv.reset(seed=self.rng.randrange(int(1e10)))
                 self.renv.soft_reset(seed=self.seed, max_steps=self.max_steps)
                 return self.renv
             elif self.cur_run <= self.num_rruns + len(self.env_list):
