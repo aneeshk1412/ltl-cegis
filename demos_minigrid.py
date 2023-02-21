@@ -4,7 +4,11 @@ import gymnasium as gym
 
 from trace_minigrid import Trace
 from runner_minigrid import Runner
-from utils import load_envs_from_pickle, demos_to_positive_samples_csv, demo_traces_to_pickle
+from utils import (
+    load_envs_from_pickle,
+    demos_to_positive_samples_csv,
+    demo_traces_to_pickle,
+)
 
 from minigrid.utils.window import Window
 from minigrid.minigrid_env import MiniGridEnv

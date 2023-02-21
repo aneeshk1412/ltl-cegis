@@ -118,7 +118,7 @@ if __name__ == "__main__":
         env_name=env_name,
         policy=ground_truth_asp_register[env_name],
         use_saved_envs=False,
-        show_window=True
+        show_window=True,
     )
     print(sat)
     print(len(traces))

@@ -26,7 +26,7 @@ def get_stem_and_loop(trace: List[Transition]):
     hashes += [str(trace[-1][3])]
     for i, x in enumerate(hashes):
         try:
-            idx = hashes[i + 1:].index(x) + i + 1
+            idx = hashes[i + 1 :].index(x) + i + 1
             stem, loop = trace[:i], trace[i:idx]
             return stem, loop
         except ValueError:

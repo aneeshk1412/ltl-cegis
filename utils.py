@@ -41,8 +41,7 @@ def demos_to_positive_samples_csv(demos, env_name: str):
             assert not s in d or d[s] == a
             d[s] = a
     df = pd.DataFrame(
-        list(set(tuple(list(s) + [a])
-             for trace in demos for _, s, a, _, _ in trace)),
+        list(set(tuple(list(s) + [a]) for trace in demos for _, s, a, _, _ in trace)),
         columns=header_register[env_name] + tuple(["action"]),
     )
     df.to_csv("data/" + env_name + "-demos.csv", index=False)
@@ -52,8 +51,7 @@ def csv_to_positive_samples_dict(env_name: str):
     df = pd.read_csv("data/" + env_name + "-demos.csv")
     l = df.to_dict("records")
     l = [
-        (tuple(record[key]
-         for key in header_register[env_name]), record["action"])
+        (tuple(record[key] for key in header_register[env_name]), record["action"])
         for record in l
     ]
     return dict(l)
