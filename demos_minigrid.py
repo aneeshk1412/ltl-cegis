@@ -3,16 +3,16 @@
 import pickle
 import gymnasium as gym
 
+from trace_minigrid import Trace
 from runner_minigrid import Runner
 from utils import load_list_from_pickle, demos_to_positive_samples_csv
-from graph_utils import Trace
 
 from minigrid.utils.window import Window
 from minigrid.minigrid_env import MiniGridEnv
 
 
 class DemoGenerator(Runner):
-    def run(self):
+    def run(self) -> None:
         super().run_internal()
         self.traces = [Trace(t, "demo") for t in self.traces if t]
         demos_to_positive_samples_csv(self.traces, self.env_name)
@@ -27,11 +27,11 @@ class DemoGenerator(Runner):
 
 
 def manually_generate_demos(
-    env_name,
-    seed=None,
-    max_steps=100,
-    use_saved_envs=False,
-):
+    env_name: str,
+    seed: int | None = None,
+    max_steps: int = 100,
+    use_saved_envs: bool = False,
+) -> None:
     renv: MiniGridEnv = gym.make(env_name, tile_size=32, max_steps=max_steps)
     env_list = (
         list(load_list_from_pickle(env_name + "-envs.pkl")) if use_saved_envs else []
