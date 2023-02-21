@@ -6,7 +6,7 @@ from typing import Tuple, List, Callable
 
 from trace_minigrid import Trace
 from runner_minigrid import Runner
-from utils import load_list_from_pickle
+from utils import load_envs_from_pickle
 
 from minigrid.utils.window import Window
 from minigrid.minigrid_env import MiniGridEnv
@@ -52,9 +52,7 @@ def verify_policy(
     use_saved_envs: bool = False,
 ) -> Tuple[bool, List[Trace]]:
     renv: MiniGridEnv = gym.make(env_name, tile_size=32, max_steps=max_steps)
-    env_list: List[MiniGridEnv] = (
-        list(load_list_from_pickle(env_name + "-envs.pkl")) if use_saved_envs else []
-    )
+    env_list = load_envs_from_pickle(env_name) if use_saved_envs else []
 
     verifier = Verify(
         env_name=env_name,

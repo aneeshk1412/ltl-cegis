@@ -3,7 +3,7 @@
 import gymnasium as gym
 
 from runner_minigrid import Runner
-from utils import load_list_from_pickle
+from utils import load_envs_from_pickle
 
 from minigrid.utils.window import Window
 from minigrid.minigrid_env import MiniGridEnv
@@ -27,9 +27,7 @@ def manual_control(
     use_saved_envs: bool = False,
 ) -> None:
     renv: MiniGridEnv = gym.make(env_name, tile_size=32, max_steps=max_steps)
-    env_list = (
-        list(load_list_from_pickle(env_name + "-envs.pkl")) if use_saved_envs else []
-    )
+    env_list = load_envs_from_pickle(env_name) if use_saved_envs else []
     window = Window(env_name)
     demogen = ManualControl(
         env_name=env_name,

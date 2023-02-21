@@ -137,7 +137,7 @@ class Runner(object):
             self.window.show_img(frame)
 
     def save_env(self) -> None:
-        with open(self.env_name + "-envs.pkl", "ab+") as f:
+        with open("data/" + self.env_name + "-envs.pkl", "ab+") as f:
             pickle.dump(self.env, f)
 
     def process_trace(self, sat: bool) -> None:
