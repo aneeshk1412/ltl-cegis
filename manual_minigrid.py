@@ -10,7 +10,7 @@ from minigrid.minigrid_env import MiniGridEnv
 
 
 class ManualControl(Runner):
-    def run(self):
+    def run(self) -> None:
         super().run_internal()
 
     def stopping_cond(self) -> bool:
@@ -21,11 +21,11 @@ class ManualControl(Runner):
 
 
 def manual_control(
-    env_name,
-    seed=None,
-    max_steps=100,
-    use_saved_envs=False,
-):
+    env_name: str,
+    seed: int | None = None,
+    max_steps: int = 100,
+    use_saved_envs: bool = False,
+) -> None:
     renv: MiniGridEnv = gym.make(env_name, tile_size=32, max_steps=max_steps)
     env_list = (
         list(load_list_from_pickle(env_name + "-envs.pkl")) if use_saved_envs else []
