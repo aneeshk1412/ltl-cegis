@@ -4,7 +4,7 @@ import gymnasium as gym
 from copy import deepcopy
 from typing import Tuple, List, Callable
 
-from graph_utils import Trace
+from trace_minigrid import Trace
 from runner_minigrid import Runner
 from utils import load_list_from_pickle
 
@@ -50,9 +50,9 @@ def verify_policy(
     show_window: bool = False,
     block: bool = False,
     use_saved_envs: bool = False,
-):
+) -> Tuple[bool, List[Trace]]:
     renv: MiniGridEnv = gym.make(env_name, tile_size=32, max_steps=max_steps)
-    env_list = (
+    env_list: List[MiniGridEnv] = (
         list(load_list_from_pickle(env_name + "-envs.pkl")) if use_saved_envs else []
     )
 
@@ -85,14 +85,14 @@ def verify_policy(
 
 
 def verify_policy_on_envs(
-    env_name,
-    env_list,
-    policy,
-    seed=None,
-    max_steps=100,
-    show_window=False,
-    block=False,
-):
+    env_name: str,
+    env_list: List[MiniGridEnv],
+    policy: Callable[[MiniGridEnv], str],
+    seed: int | None = None,
+    max_steps: int = 100,
+    show_window: bool = False,
+    block: bool = False,
+) -> Tuple[bool, List[Tuple[bool, Trace]]]:
     window = Window(env_name) if show_window else None
 
     verifier = VerifyAll(
