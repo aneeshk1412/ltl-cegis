@@ -3,11 +3,12 @@
 from typing import List, Callable
 from copy import deepcopy
 from collections import deque
+import heapq
 
 from trace_minigrid import Trace
 from graph_minigrid import TransitionGraph
 from learner_minigrid import train_policy, plot_policy
-from policy_minigrid import feature_register, header_register
+from policy_minigrid import feature_register, header_register, progress_register
 from verifier_minigrid import verify_policy, verify_policy_on_envs
 from utils import csv_to_positive_samples_dict, intersperse, pickle_to_demo_traces
 
@@ -19,9 +20,7 @@ def satisfies(policy: Callable[[MiniGridEnv], str], trace: Trace) -> bool:
     return all(policy(env) == a for env, _, a, _, _ in trace)
 
 
-def correct_single_trace(
-    trace: Trace, policy: Callable[[MiniGridEnv], str], decided_samples, speculated_samples, env_name, graph
-):
+def correct_single_trace(trace: Trace, policy: Callable[[MiniGridEnv], str], decided_samples, speculated_samples, env_name, graph):
     env, _, _, _, _ = trace[0]
     trace_queue = deque([(trace, dict())])
     num_traces = 1
@@ -33,7 +32,7 @@ def correct_single_trace(
         if all(
             cond(decided_samples, s, a)
             or cond(current_ss, s, a)
-            or cond(speculated_samples, s, a)
+            # or cond(speculated_samples, s, a)
             for _, s, a, _, _ in current_trace.get_abstract_trace()
         ):
             ## This ss is unsatisfiable
@@ -42,9 +41,9 @@ def correct_single_trace(
             if s in decided_samples:
                 assert decided_samples[s] == a
                 continue
-            if s in speculated_samples:
-                assert speculated_samples[s] == a
-                continue
+            # if s in speculated_samples:
+            #     assert speculated_samples[s] == a
+            #     continue
             if s in current_ss:
                 assert current_ss[s] == a
                 continue
@@ -57,7 +56,7 @@ def correct_single_trace(
                     if feature_register[env_name](env) in new_ss
                     else policy(env)
                 )
-                # print(f"{new_ss}")
+
                 sat, sat_trace_pairs = verify_policy_on_envs(
                     env_name=env_name,
                     env_list=[e],
@@ -65,10 +64,7 @@ def correct_single_trace(
                     show_window=False,
                 )
                 if sat:
-                    # print(f"{num_traces}")
-                    print(
-                        f"Number of Traces added before correcting this trace: {num_traces}"
-                    )
+                    print(f"Number of Traces added before correcting this trace: {num_traces}")
                     print()
                     sat, sat_trace_pairs = verify_policy_on_envs(
                         env_name=env_name,
@@ -81,12 +77,12 @@ def correct_single_trace(
                             new_ss[s] = a
                     return new_ss
 
-                print(f"Number of Traces till now {num_traces}", end="\r")
                 num_traces += 1
+                print(f"Number of Traces till now {num_traces}", end="\r")
                 trace_queue.append((sat_trace_pairs[0][1], deepcopy(new_ss)))
                 graph.add_trace(sat_trace_pairs[0][1])
                 graph.show_graph()
-    print("UNSAT")
+    return None
 
 
 def get_new_working_and_other_traces(working_traces, other_traces, policy, new_traces):
@@ -163,6 +159,19 @@ def get_arguments():
     return parser.parse_args()
 
 
+def check_conflicts(speculated_samples, suggested_samples):
+    flag = False
+    for s in set(suggested_samples.keys()) & set(speculated_samples.keys()):
+        if suggested_samples[s] != speculated_samples[s]:
+            if suggested_samples[s] in {"left", "right"} and speculated_samples[s] in {"left", "right"}:
+                continue
+            caption = "    ".join(intersperse([header_register[args.env_name][i] for i in range(len(s)) if s[i]], "\n", 2))
+            print(f"State: {caption}")
+            print(f"Unmatched : {suggested_samples[s] = }, {speculated_samples[s] = }")
+            flag = True
+    return flag
+
+
 if __name__ == "__main__":
     args = get_arguments()
 
@@ -222,33 +231,10 @@ if __name__ == "__main__":
             env_name=args.env_name,
             graph=graph,
         )
-        flag = False
-        # for s in set(suggested_samples.keys()) & set(speculated_samples.keys()):
-        #     if suggested_samples[s] != speculated_samples[s]:
-        #         if suggested_samples[s] in {"left", "right"} and speculated_samples[
-        #             s
-        #         ] in {"left", "right"}:
-        #             continue
-        #         caption = "    ".join(
-        #             intersperse(
-        #                 [
-        #                     header_register[args.env_name][i]
-        #                     for i in range(len(s))
-        #                     if s[i]
-        #                 ],
-        #                 "\n",
-        #                 2,
-        #             )
-        #         )
-        #         print(f"State: {caption}")
-        #         print(
-        #             f"Unmatched : {suggested_samples[s] = }, {speculated_samples[s] = }"
-        #         )
-        #         flag = True
-        # if flag:
-        #     raise Exception(
-        #         "Newly Suggested Samples differ from Speculated Samples till the Last Iteration"
-        #     )
+        if suggested_samples is None:
+            raise Exception("UNSAT: Could not come up with a Suggested Sample set")
+        if check_conflicts(speculated_samples, suggested_samples):
+            raise Exception("Newly Suggested Samples differ from Speculated Samples till the Last Iteration")
         speculated_samples.update(suggested_samples)
         epoch += 1
         graph.show_graph()

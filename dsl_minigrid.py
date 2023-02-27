@@ -195,6 +195,18 @@ def header_MultiKeyDoorKey_1() -> Tuple[str, ...]:
         *common_headers("key", "red"),
     )
 
+def progress_MultiKeyDoorKey_1(env: MiniGridEnv) -> int:
+    if all(is_present(env, "key", c) for c in {'green'}):
+        return 0
+    ## All keys picked
+    if not is_present(env, "goal"):
+        return 1
+    ## Door is opened
+    if not is_agent_on(env, get_nearest(env, "goal")):
+        return 2
+    return 3
+
+
 def features_MultiKeyDoorKey_2(env: MiniGridEnv) -> Tuple[bool, ...]:
     features = (
         is_agent_on(env, get_nearest(env, "goal")),
@@ -217,6 +229,20 @@ def header_MultiKeyDoorKey_2() -> Tuple[str, ...]:
         *common_headers("key", "red"),
         *common_headers("key", "green"),
     )
+
+def progress_MultiKeyDoorKey_2(env: MiniGridEnv) -> int:
+    if all(is_present(env, "key", c) for c in {'red', 'green'}):
+        return 0
+    ## One key picked
+    if all(is_present(env, "key", c) for c in {'green'}):
+        return 1
+    ## Both keys picked
+    if not is_present(env, "goal"):
+        return 2
+    ## Door is opened
+    if not is_agent_on(env, get_nearest(env, "goal")):
+        return 3
+    return 4
 
 def features_MultiKeyDoorKey_3(env: MiniGridEnv) -> Tuple[bool, ...]:
     features = (
@@ -344,4 +370,16 @@ feature_register = {
     "MiniGrid-MultiKeyDoorKey-16x16-4": features_MultiKeyDoorKey_4,
     "MiniGrid-MultiKeyDoorKey-16x16-5": features_MultiKeyDoorKey_5,
     "MiniGrid-BlockedUnlockPickup-v0": features_BlockedUnlockPickup,
+}
+
+progress_register = {
+    # "MiniGrid-Empty-Random-6x6-v0": progress_Empty,
+    # "MiniGrid-LavaGapS7-v0": progress_LavaGap,
+    # "MiniGrid-DoorKey-16x16-v0": progress_DoorKey,
+    "MiniGrid-MultiKeyDoorKey-16x16-1": progress_MultiKeyDoorKey_1,
+    "MiniGrid-MultiKeyDoorKey-16x16-2": progress_MultiKeyDoorKey_2,
+    # "MiniGrid-MultiKeyDoorKey-16x16-3": progress_MultiKeyDoorKey_3,
+    # "MiniGrid-MultiKeyDoorKey-16x16-4": progress_MultiKeyDoorKey_4,
+    # "MiniGrid-MultiKeyDoorKey-16x16-5": progress_MultiKeyDoorKey_5,
+    # "MiniGrid-BlockedUnlockPickup-v0": progress_BlockedUnlockPickup,
 }

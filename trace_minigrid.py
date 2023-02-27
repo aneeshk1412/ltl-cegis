@@ -51,6 +51,9 @@ class Trace(object):
     def __getitem__(self, index) -> Transition:
         return self.abstract_trace[index]
 
+    def __lt__(self, other) -> bool:
+        return True
+
     def get_stem(self) -> List[Transition]:
         return self.stem
 
@@ -58,7 +61,7 @@ class Trace(object):
         return self.loop
 
     def get_abstract_trace(self) -> List[Transition]:
-        return self.trace
+        return self.abstract_trace
 
     def get_abstract_stem(self) -> List[Transition]:
         return self.abstract_stem
