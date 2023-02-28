@@ -20,6 +20,71 @@ def satisfies(policy: Callable[[MiniGridEnv], str], trace: Trace) -> bool:
     return all(policy(env) == a for env, _, a, _, _ in trace)
 
 
+def correct_single_trace_priority(trace: Trace, policy: Callable[[MiniGridEnv], str], decided_samples, speculated_samples, env_name, graph):
+    env, _, _, _, _ = trace[0]
+    trace_queue = [(progress_register[env_name](trace[-1][3]), trace, dict())]
+    num_traces = 1
+    graph.add_trace(trace)
+    # print(f"{len(trace.get_abstract_trace()) = } {len(trace.get_abstract_loop()) = } {len(trace.get_abstract_stem()) = }")
+    while len(trace_queue):
+        _, current_trace, current_ss = heapq.heappop(trace_queue)
+        cond = lambda d, s, a: s in d and d[s] == a
+        if all(
+            cond(decided_samples, s, a)
+            or cond(current_ss, s, a)
+            # or cond(speculated_samples, s, a)
+            for _, s, a, _, _ in current_trace.get_abstract_trace()
+        ):
+            ## This ss is unsatisfiable
+            continue
+        for e, s, a, _, _ in current_trace.get_abstract_trace():
+            if s in decided_samples:
+                assert decided_samples[s] == a
+                continue
+            # if s in speculated_samples:
+            #     assert speculated_samples[s] == a
+            #     continue
+            if s in current_ss:
+                assert current_ss[s] == a
+                continue
+
+            for a_p in sorted(ACT_SET - set([a])):
+                new_ss = dict((si, ai) for si, ai in current_ss.items())
+                new_ss[s] = a_p
+                new_policy = (
+                    lambda env: new_ss[feature_register[env_name](env)]
+                    if feature_register[env_name](env) in new_ss
+                    else policy(env)
+                )
+
+                sat, sat_trace_pairs = verify_policy_on_envs(
+                    env_name=env_name,
+                    env_list=[e],
+                    policy=new_policy,
+                    show_window=False,
+                )
+                if sat:
+                    print(f"Number of Traces added before correcting this trace: {num_traces}")
+                    print()
+                    sat, sat_trace_pairs = verify_policy_on_envs(
+                        env_name=env_name,
+                        env_list=[env],
+                        policy=new_policy,
+                        show_window=False,
+                    )
+                    for _, s, a, _, _ in sat_trace_pairs[0][1]:
+                        if not s in decided_samples and not s in speculated_samples:
+                            new_ss[s] = a
+                    return new_ss
+
+                num_traces += 1
+                print(f"Number of Traces till now {num_traces}", end="\r")
+                heapq.heappush(trace_queue, (progress_register[env_name](sat_trace_pairs[0][1][-1][3]), sat_trace_pairs[0][1], deepcopy(new_ss)))
+                graph.add_trace(sat_trace_pairs[0][1])
+                graph.show_graph()
+    return None
+
+
 def correct_single_trace(trace: Trace, policy: Callable[[MiniGridEnv], str], decided_samples, speculated_samples, env_name, graph):
     env, _, _, _, _ = trace[0]
     trace_queue = deque([(trace, dict())])
@@ -86,25 +151,22 @@ def correct_single_trace(trace: Trace, policy: Callable[[MiniGridEnv], str], dec
 
 
 def get_new_working_and_other_traces(working_traces, other_traces, policy, new_traces):
-    print(f"Number of new traces: {len(new_traces)}")
+    # print(f"Number of new traces: {len(new_traces)}")
 
-    work_to_correct = [
-        trace for trace in working_traces if not satisfies(policy, trace)
-    ]
+    work_to_correct = [trace for trace in working_traces if not satisfies(policy, trace)]
     correct_to_work = [trace for trace in other_traces if satisfies(policy, trace)]
-    print(f"Number of traces moved from Working to Corrected: {len(work_to_correct)}")
-    print(f"Number of traces moved from Corrected to Working: {len(correct_to_work)}")
+    # print(f"Number of traces moved from Working to Corrected: {len(work_to_correct)}")
+    if correct_to_work:
+        print(f"Number of traces moved from Corrected to Working: {len(correct_to_work)}")
 
     new_working_traces = (
         [trace for trace in working_traces if satisfies(policy, trace)]
         + correct_to_work
         + new_traces
     )
-    new_other_traces = work_to_correct + [
-        trace for trace in other_traces if not satisfies(policy, trace)
-    ]
-    print(f"{len(new_working_traces) = } {len(new_other_traces) = }")
-    print()
+    new_other_traces = work_to_correct + [trace for trace in other_traces if not satisfies(policy, trace)]
+    # print(f"{len(new_working_traces) = } {len(new_other_traces) = }")
+    # print()
     return new_working_traces, new_other_traces
 
 
@@ -156,6 +218,12 @@ def get_arguments():
         help="whether to show the animation window",
         action="store_true",
     )
+    parser.add_argument(
+        "--algorithm",
+        default='bfs',
+        help="which algorithm to use",
+        choices=['bfs', 'priority'],
+    )
     return parser.parse_args()
 
 
@@ -187,59 +255,114 @@ if __name__ == "__main__":
 
     epoch = 0
 
-    while True:
-        working_traces.sort(key=lambda x: len(x.get_abstract_loop()))
-        policy, _ = train_policy(
-            env_name=args.env_name,
-            decided_samples=decided_samples,
-            speculated_samples=speculated_samples,
-            seed=args.learner_seed,
-            save=False,
-        )
-        sat, traces = verify_policy(
-            env_name=args.env_name,
-            policy=policy,
-            seed=args.verifier_seed,
-            num_rruns=args.num_rruns,
-            max_steps=args.max_steps,
-            use_saved_envs=False,
-            show_window=args.show_window,
-        )
-        if sat:
+    if args.algorithm == 'bfs':
+        while True:
+            working_traces.sort(key=lambda x: len(x.get_abstract_loop()))
+            policy, _ = train_policy(
+                env_name=args.env_name,
+                decided_samples=decided_samples,
+                speculated_samples=speculated_samples,
+                seed=args.learner_seed,
+                save=False,
+            )
             sat, traces = verify_policy(
                 env_name=args.env_name,
                 policy=policy,
                 seed=args.verifier_seed,
-                num_rruns=300,
+                num_rruns=args.num_rruns,
                 max_steps=args.max_steps,
                 use_saved_envs=False,
                 show_window=args.show_window,
             )
             if sat:
-                break
+                sat, traces = verify_policy(
+                    env_name=args.env_name,
+                    policy=policy,
+                    seed=args.verifier_seed,
+                    num_rruns=300,
+                    max_steps=args.max_steps,
+                    use_saved_envs=False,
+                    show_window=args.show_window,
+                )
+                if sat:
+                    break
 
-        """ Main Algorithm starts here """
+            """ Main Algorithm starts here """
 
-        working_traces, other_traces = get_new_working_and_other_traces(
-            working_traces, other_traces, policy, traces
-        )
-        suggested_samples = correct_single_trace(
-            working_traces[0],
-            policy=policy,
-            decided_samples=decided_samples,
-            speculated_samples=speculated_samples,
-            env_name=args.env_name,
-            graph=graph,
-        )
-        if suggested_samples is None:
-            raise Exception("UNSAT: Could not come up with a Suggested Sample set")
-        if check_conflicts(speculated_samples, suggested_samples):
-            raise Exception("Newly Suggested Samples differ from Speculated Samples till the Last Iteration")
-        speculated_samples.update(suggested_samples)
-        epoch += 1
-        graph.show_graph()
+            working_traces, other_traces = get_new_working_and_other_traces(
+                working_traces, other_traces, policy, traces
+            )
+            suggested_samples = correct_single_trace(
+                working_traces[0],
+                policy=policy,
+                decided_samples=decided_samples,
+                speculated_samples=speculated_samples,
+                env_name=args.env_name,
+                graph=graph,
+            )
+            if suggested_samples is None:
+                raise Exception("UNSAT: Could not come up with a Suggested Sample set")
+            if check_conflicts(speculated_samples, suggested_samples):
+                pass
+            speculated_samples.update(suggested_samples)
+            epoch += 1
+            graph.show_graph()
 
-    print(f"Epochs to Completion: {epoch}")
+        print(f"Epochs to Completion: {epoch}")
+    elif args.algorithm == 'priority':
+        while True:
+            working_traces.sort(key=lambda x: len(x.get_abstract_loop()))
+            policy, _ = train_policy(
+                env_name=args.env_name,
+                decided_samples=decided_samples,
+                speculated_samples=speculated_samples,
+                seed=args.learner_seed,
+                save=False,
+            )
+            sat, traces = verify_policy(
+                env_name=args.env_name,
+                policy=policy,
+                seed=args.verifier_seed,
+                num_rruns=args.num_rruns,
+                max_steps=args.max_steps,
+                use_saved_envs=False,
+                show_window=args.show_window,
+            )
+            if sat:
+                sat, traces = verify_policy(
+                    env_name=args.env_name,
+                    policy=policy,
+                    seed=args.verifier_seed,
+                    num_rruns=300,
+                    max_steps=args.max_steps,
+                    use_saved_envs=False,
+                    show_window=args.show_window,
+                )
+                if sat:
+                    break
+
+            """ Main Algorithm starts here """
+
+            working_traces, other_traces = get_new_working_and_other_traces(
+                working_traces, other_traces, policy, traces
+            )
+            suggested_samples = correct_single_trace_priority(
+                working_traces[0],
+                policy=policy,
+                decided_samples=decided_samples,
+                speculated_samples=speculated_samples,
+                env_name=args.env_name,
+                graph=graph,
+            )
+            if suggested_samples is None:
+                raise Exception("UNSAT: Could not come up with a Suggested Sample set")
+            if check_conflicts(speculated_samples, suggested_samples):
+                pass
+            speculated_samples.update(suggested_samples)
+            epoch += 1
+            graph.show_graph()
+
+        print(f"Epochs to Completion: {epoch}")
 
     _, model = train_policy(
         env_name=args.env_name,
