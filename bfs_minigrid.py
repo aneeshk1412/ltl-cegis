@@ -78,10 +78,10 @@ def correct_single_trace_priority(trace: Trace, policy: Callable[[MiniGridEnv], 
                     return new_ss
 
                 num_traces += 1
-                print(f"Number of Traces till now {num_traces}", end="\r")
+                # print(f"Number of Traces till now {num_traces}", end="\r")
                 heapq.heappush(trace_queue, (progress_register[env_name](sat_trace_pairs[0][1][-1][3]), sat_trace_pairs[0][1], deepcopy(new_ss)))
                 graph.add_trace(sat_trace_pairs[0][1])
-                graph.show_graph()
+                # graph.show_graph()
     return None
 
 
@@ -143,10 +143,10 @@ def correct_single_trace(trace: Trace, policy: Callable[[MiniGridEnv], str], dec
                     return new_ss
 
                 num_traces += 1
-                print(f"Number of Traces till now {num_traces}", end="\r")
+                # print(f"Number of Traces till now {num_traces}", end="\r")
                 trace_queue.append((sat_trace_pairs[0][1], deepcopy(new_ss)))
                 graph.add_trace(sat_trace_pairs[0][1])
-                graph.show_graph()
+                # graph.show_graph()
     return None
 
 
@@ -306,7 +306,7 @@ if __name__ == "__main__":
                 pass
             speculated_samples.update(suggested_samples)
             epoch += 1
-            graph.show_graph()
+            # graph.show_graph()
 
         print(f"Epochs to Completion: {epoch}")
     elif args.algorithm == 'priority':
@@ -360,7 +360,7 @@ if __name__ == "__main__":
                 pass
             speculated_samples.update(suggested_samples)
             epoch += 1
-            graph.show_graph()
+            # graph.show_graph()
 
         print(f"Epochs to Completion: {epoch}")
 

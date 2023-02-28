@@ -196,7 +196,8 @@ def header_MultiKeyDoorKey_1() -> Tuple[str, ...]:
     )
 
 def progress_MultiKeyDoorKey_1(env: MiniGridEnv) -> int:
-    if all(is_present(env, "key", c) for c in {'green'}):
+    num_keys_remaining = sum(is_present(env, "key", c) for c in {'green'})
+    if num_keys_remaining == 1:
         return 0
     ## All keys picked
     if not is_present(env, "goal"):
@@ -231,10 +232,10 @@ def header_MultiKeyDoorKey_2() -> Tuple[str, ...]:
     )
 
 def progress_MultiKeyDoorKey_2(env: MiniGridEnv) -> int:
-    if all(is_present(env, "key", c) for c in {'red', 'green'}):
+    num_keys_remaining = sum(is_present(env, "key", c) for c in {'green'})
+    if num_keys_remaining == 2:
         return 0
-    ## One key picked
-    if all(is_present(env, "key", c) for c in {'green'}):
+    if num_keys_remaining == 1:
         return 1
     ## Both keys picked
     if not is_present(env, "goal"):
@@ -269,6 +270,22 @@ def header_MultiKeyDoorKey_3() -> Tuple[str, ...]:
         *common_headers("key", "blue"),
     )
 
+def progress_MultiKeyDoorKey_3(env: MiniGridEnv) -> int:
+    num_keys_remaining = sum(is_present(env, "key", c) for c in {'green'})
+    if num_keys_remaining == 3:
+        return 0
+    if num_keys_remaining == 2:
+        return 1
+    if num_keys_remaining == 1:
+        return 2
+    ## Both keys picked
+    if not is_present(env, "goal"):
+        return 3
+    ## Door is opened
+    if not is_agent_on(env, get_nearest(env, "goal")):
+        return 4
+    return 5
+
 def features_MultiKeyDoorKey_4(env: MiniGridEnv) -> Tuple[bool, ...]:
     features = (
         is_agent_on(env, get_nearest(env, "goal")),
@@ -295,6 +312,24 @@ def header_MultiKeyDoorKey_4() -> Tuple[str, ...]:
         *common_headers("key", "blue"),
         *common_headers("key", "purple"),
     )
+
+def progress_MultiKeyDoorKey_4(env: MiniGridEnv) -> int:
+    num_keys_remaining = sum(is_present(env, "key", c) for c in {'green'})
+    if num_keys_remaining == 4:
+        return 0
+    if num_keys_remaining == 3:
+        return 1
+    if num_keys_remaining == 2:
+        return 2
+    if num_keys_remaining == 1:
+        return 3
+    ## All keys picked
+    if not is_present(env, "goal"):
+        return 4
+    ## Door is opened
+    if not is_agent_on(env, get_nearest(env, "goal")):
+        return 5
+    return 6
 
 def features_MultiKeyDoorKey_5(env: MiniGridEnv) -> Tuple[bool, ...]:
     features = (
@@ -324,6 +359,26 @@ def header_MultiKeyDoorKey_5() -> Tuple[str, ...]:
         *common_headers("key", "purple"),
         *common_headers("key", "yellow"),
     )
+
+def progress_MultiKeyDoorKey_5(env: MiniGridEnv) -> int:
+    num_keys_remaining = sum(is_present(env, "key", c) for c in {'green'})
+    if num_keys_remaining == 5:
+        return 0
+    if num_keys_remaining == 4:
+        return 1
+    if num_keys_remaining == 3:
+        return 2
+    if num_keys_remaining == 2:
+        return 3
+    if num_keys_remaining == 1:
+        return 4
+    ## All keys picked
+    if not is_present(env, "goal"):
+        return 5
+    ## Door is opened
+    if not is_agent_on(env, get_nearest(env, "goal")):
+        return 6
+    return 7
 
 def features_BlockedUnlockPickup(env: MiniGridEnv) -> Tuple[bool, ...]:
     features = (
@@ -378,8 +433,8 @@ progress_register = {
     # "MiniGrid-DoorKey-16x16-v0": progress_DoorKey,
     "MiniGrid-MultiKeyDoorKey-16x16-1": progress_MultiKeyDoorKey_1,
     "MiniGrid-MultiKeyDoorKey-16x16-2": progress_MultiKeyDoorKey_2,
-    # "MiniGrid-MultiKeyDoorKey-16x16-3": progress_MultiKeyDoorKey_3,
-    # "MiniGrid-MultiKeyDoorKey-16x16-4": progress_MultiKeyDoorKey_4,
-    # "MiniGrid-MultiKeyDoorKey-16x16-5": progress_MultiKeyDoorKey_5,
+    "MiniGrid-MultiKeyDoorKey-16x16-3": progress_MultiKeyDoorKey_3,
+    "MiniGrid-MultiKeyDoorKey-16x16-4": progress_MultiKeyDoorKey_4,
+    "MiniGrid-MultiKeyDoorKey-16x16-5": progress_MultiKeyDoorKey_5,
     # "MiniGrid-BlockedUnlockPickup-v0": progress_BlockedUnlockPickup,
 }

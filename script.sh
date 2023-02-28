@@ -1,10 +1,10 @@
 #!/bin/bash
 
-rm -f loop_only.txt
-touch loop_only.txt
-
-for (( i = 1; i < 100; i+=1 )); do
-	#statements
-	echo Seed $i
-	python bfs_minigrid.py --env-name MiniGrid-MultiKeyDoorKey-16x16-1 --verifier-seed "${i}" >>loop_only.txt
+for envname in MiniGrid-MultiKeyDoorKey-16x16-1 MiniGrid-MultiKeyDoorKey-16x16-2; do
+	for algo in bfs priority; do
+		for seed in 100 200 300 400 500; do
+			python bfs_minigrid.py --env-name "${envname}" --verifier-seed "${seed}" --algorithm "${algo}" >"logs/${envname}-${algo}-${seed}.log" &
+		done
+		wait
+	done
 done
