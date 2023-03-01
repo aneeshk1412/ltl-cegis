@@ -28,6 +28,7 @@ class Runner(object):
         block: bool = False,
         num_rruns: int | None = None,
         env_list: List[MiniGridEnv] = [],
+        detect_collision: bool = False,
     ) -> None:
         self.renv = renv
         self.env: MiniGridEnv | None = None
@@ -50,6 +51,9 @@ class Runner(object):
         else:
             self.num_runs = len(env_list) + self.num_rruns
         self.cur_run: int = 0
+        self.detect_collision = detect_collision
+        if self.detect_collision:
+            self.seen_envs = set()
 
         assert implies(not self.block, self.policy is not None)
         assert implies(self.block, self.window is not None)
@@ -118,6 +122,8 @@ class Runner(object):
         self.cur_run += 1
         self.env = self.get_next_env()
         if self.env is not None:
+            if self.detect_collision:
+                self.seen_envs = set(str(self.env))
             self.redraw()
         assert implies(self.env is None, not self.stopping_cond())
         if not self.stopping_cond() and self.block:
@@ -157,7 +163,7 @@ class Runner(object):
             (state, self.obs_func(state), key, next_state, self.obs_func(next_state))
         )
 
-        if truncated:
+        if truncated or (self.detect_collision and str(self.env) in self.seen_envs):
             self.sat = False
             self.process_trace(False)
             return self.reset()
@@ -170,6 +176,7 @@ class Runner(object):
             return self.reset()
         else:
             self.redraw(key)
+            self.seen_envs.add(str(self.env))
             return True
 
     def key_handler(self, event=None) -> bool:

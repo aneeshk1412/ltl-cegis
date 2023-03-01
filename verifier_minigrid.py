@@ -64,6 +64,7 @@ def verify_policy(
         block=False,
         num_rruns=num_rruns,
         env_list=env_list,
+        detect_collision=True,
     )
     sat, traces = verifier.run()
     if show_window and len(traces) > 0:
@@ -77,6 +78,7 @@ def verify_policy(
             window=Window(env_name),
             block=block,
             env_list=envs,
+            detect_collision=True,
         )
         _, _ = cex_runs.run()
     return sat, traces
@@ -102,6 +104,7 @@ def verify_policy_on_envs(
         window=window,
         block=block,
         env_list=[deepcopy(e) for e in env_list],
+        detect_collision=True,
     )
     sat, sat_trace_pairs = verifier.run()
     return sat, sat_trace_pairs

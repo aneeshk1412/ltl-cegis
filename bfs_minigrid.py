@@ -227,17 +227,108 @@ def get_arguments():
     return parser.parse_args()
 
 
-def check_conflicts(speculated_samples, suggested_samples):
+def check_conflicts(speculated_samples, suggested_samples, env_name):
     flag = False
     for s in set(suggested_samples.keys()) & set(speculated_samples.keys()):
         if suggested_samples[s] != speculated_samples[s]:
             if suggested_samples[s] in {"left", "right"} and speculated_samples[s] in {"left", "right"}:
                 continue
-            caption = "    ".join(intersperse([header_register[args.env_name][i] for i in range(len(s)) if s[i]], "\n", 2))
+            caption = "    ".join(intersperse([header_register[env_name][i] for i in range(len(s)) if s[i]], "\n", 2))
             print(f"State: {caption}")
             print(f"Unmatched : {suggested_samples[s] = }, {speculated_samples[s] = }")
             flag = True
     return flag
+
+
+def resolve_conflicts(speculated_samples, suggested_samples, policy, env_name, working_traces, other_traces):
+    print(suggested_samples)
+    ss_A = dict()
+    for s in list(speculated_samples.keys()) + list(suggested_samples.keys()):
+        if s in speculated_samples:
+            ss_A[s] = speculated_samples[s]
+        else:
+            ss_A[s] = suggested_samples[s]
+
+    ss_B = dict()
+    for s in list(speculated_samples.keys()) + list(suggested_samples.keys()):
+        if s in suggested_samples:
+            ss_B[s] = suggested_samples[s]
+        else:
+            ss_B[s] = speculated_samples[s]
+
+    policy_A = (
+        lambda env: ss_A[feature_register[env_name](env)]
+        if feature_register[env_name](env) in ss_A
+        else policy(env)
+    )
+
+    policy_B = (
+        lambda env: ss_B[feature_register[env_name](env)]
+        if feature_register[env_name](env) in ss_B
+        else policy(env)
+    )
+
+    sat_A, sat_trace_pairs_A = verify_policy_on_envs(
+        env_name=env_name,
+        env_list=[t[0][0] for t in working_traces] + [t[0][0] for t in other_traces],
+        policy=policy_A,
+        show_window=False,
+    )
+
+    sat_B, sat_trace_pairs_B = verify_policy_on_envs(
+        env_name=env_name,
+        env_list=[t[0][0] for t in working_traces] + [t[0][0] for t in other_traces],
+        policy=policy_B,
+        show_window=False,
+    )
+
+    if sat_A and sat_B:
+        print("Both work")
+        return ss_B
+    if sat_A:
+        print("Only Old works in all")
+        return ss_A
+    if sat_B:
+        print("Only New works in all")
+        return ss_B
+
+    print("Failing envs A")
+    for i, (s, t) in enumerate(sat_trace_pairs_A):
+        if not s:
+            _, _ = verify_policy_on_envs(
+                env_name=env_name,
+                env_list=[t[0][0]],
+                policy=policy_A,
+                show_window=True,
+                block=True,
+            )
+            _, _ = verify_policy_on_envs(
+                env_name=env_name,
+                env_list=[t[0][0]],
+                policy=policy,
+                show_window=True,
+                block=True,
+            )
+    print("Failing envs B")
+    for i, (s, t) in enumerate(sat_trace_pairs_B):
+        if not s:
+            _, _ = verify_policy_on_envs(
+                env_name=env_name,
+                env_list=[t[0][0]],
+                policy=policy_B,
+                show_window=True,
+                block=True,
+            )
+            _, _ = verify_policy_on_envs(
+                env_name=env_name,
+                env_list=[t[0][0]],
+                policy=policy,
+                show_window=True,
+                block=True,
+            )
+
+    raise Exception("Both fail some traces")
+
 
 
 if __name__ == "__main__":
@@ -302,8 +393,8 @@ if __name__ == "__main__":
             )
             if suggested_samples is None:
                 raise Exception("UNSAT: Could not come up with a Suggested Sample set")
-            if check_conflicts(speculated_samples, suggested_samples):
-                pass
+            if check_conflicts(speculated_samples, suggested_samples, args.env_name):
+                suggested_samples = resolve_conflicts(speculated_samples, suggested_samples, policy, args.env_name, working_traces, other_traces)
             speculated_samples.update(suggested_samples)
             epoch += 1
             # graph.show_graph()
@@ -356,8 +447,8 @@ if __name__ == "__main__":
             )
             if suggested_samples is None:
                 raise Exception("UNSAT: Could not come up with a Suggested Sample set")
-            if check_conflicts(speculated_samples, suggested_samples):
-                pass
+            if check_conflicts(speculated_samples, suggested_samples, args.env_name):
+                suggested_samples = resolve_conflicts(speculated_samples, suggested_samples, policy, args.env_name, working_traces, other_traces)
             speculated_samples.update(suggested_samples)
             epoch += 1
             # graph.show_graph()
