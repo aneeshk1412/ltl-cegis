@@ -10,20 +10,19 @@ Transition = Tuple[MiniGridEnv, Tuple[bool, ...], str, MiniGridEnv, Tuple[bool, 
 
 
 def remove_repeated_abstract_transitions(trace: List[Transition]):
-    l = []
+    abstract_transitions = []
     if not trace:
-        return l
+        return abstract_transitions
     prev_state = None
     for e, s, a, e_n, s_n in trace:
         if not prev_state or prev_state != (s, a, s_n):
-            l.append((e, s, a, e_n, s_n))
+            abstract_transitions.append((e, s, a, e_n, s_n))
         prev_state = (e, s, a, e_n, s_n)
-    return l
+    return abstract_transitions
 
 
 def get_stem_and_loop(trace: List[Transition]):
-    hashes = [str(e) for e, _, _, _, _ in trace]
-    hashes += [str(trace[-1][3])]
+    hashes = [str(e) for e, _, _, _, _ in trace] + [str(trace[-1][3])]
     for i, x in enumerate(hashes):
         try:
             idx = hashes[i + 1 :].index(x) + i + 1

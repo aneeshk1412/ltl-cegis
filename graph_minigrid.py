@@ -1,33 +1,11 @@
 #!/usr/bin/env python3
 
 import networkx as nx
-from typing import Tuple, List
+from typing import List
 from pyvis.network import Network
 
-from minigrid.minigrid_env import MiniGridEnv
-
 from trace_minigrid import Trace, Transition
-from dsl_minigrid import feature_register, header_register
-
-
-def env_to_state(env: MiniGridEnv, env_name: str) -> Tuple[bool, ...]:
-    return feature_register[env_name](env)
-
-
-def state_to_bitstring(state: Tuple[bool, ...]) -> str:
-    return "".join(str(int(s)) for s in state)
-
-
-def bitstring_to_state(s: str) -> Tuple[bool, ...]:
-    return tuple(c == "1" for c in s)
-
-
-def state_to_string(state: Tuple[bool, ...], env_name: str) -> str:
-    return "\n".join(header_register[env_name][i] for i, s in enumerate(state) if s)
-
-
-def bitstring_to_string(s: str, env_name: str) -> str:
-    return "\n".join(header_register[env_name][i] for i, c in enumerate(s) if c == "1")
+from utils import state_to_bitstring, state_to_string
 
 
 class TransitionGraph(object):
