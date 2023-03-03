@@ -78,7 +78,7 @@ def verify_policy(
             window=Window(env_name),
             block=block,
             env_list=envs,
-            detect_collision=True,
+            detect_collision=False,
         )
         _, _ = cex_runs.run()
     return sat, traces

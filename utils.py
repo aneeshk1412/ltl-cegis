@@ -42,16 +42,26 @@ def state_to_string(state: Tuple[bool, ...], env_name: str) -> str:
     return "\n".join(header_register[env_name][i] for i, s in enumerate(state) if s)
 
 
+def state_to_pretty_string(state: Tuple[bool, ...], env_name: str) -> str:
+    return "    ".join(
+        intersperse(
+            items=[header_register[env_name][i] for i in range(len(state)) if state[i]],
+            sep="\n",
+            space=2,
+        )
+    )
+
+
 def bitstring_to_string(s: str, env_name: str) -> str:
     return "\n".join(header_register[env_name][i] for i, c in enumerate(s) if c == "1")
 
 
-def intersperse(items, ele, n=3):
+def intersperse(items, sep, space=3):
     return [
         x
         for y in (
-            items[i : i + n] + [ele] * (i < len(items) - (n - 1))
-            for i in range(0, len(items), n)
+            items[i : i + space] + [sep] * (i < len(items) - (space - 1))
+            for i in range(0, len(items), space)
         )
         for x in y
     ]

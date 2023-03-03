@@ -176,7 +176,8 @@ class Runner(object):
             return self.reset()
         else:
             self.redraw(key)
-            self.seen_envs.add(str(self.env))
+            if self.detect_collision:
+                self.seen_envs.add(str(self.env))
             return True
 
     def key_handler(self, event=None) -> bool:
