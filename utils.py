@@ -2,9 +2,10 @@
 
 import pickle
 import pandas as pd
-from typing import Tuple
 
+from trace_minigrid import State
 from dsl_minigrid import header_register, feature_register
+
 from minigrid.minigrid_env import MiniGridEnv
 
 DEBUG = True
@@ -15,34 +16,27 @@ def debug(*args, **kwargs):
         print(*args, **kwargs)
 
 
-def get_augmented_policy(policy, speculation_set, env_name):
-    def augmented_policy(env):
-        state = feature_register[env_name](env)
-        if state in speculation_set:
-            return speculation_set[state]
-        else:
-            return policy(env)
-
-    return augmented_policy
+def is_sample_present(sample_dict, s, a):
+    return s in sample_dict and sample_dict[s] == a
 
 
-def env_to_state(env: MiniGridEnv, env_name: str) -> Tuple[bool, ...]:
+def env_to_state(env: MiniGridEnv, env_name: str) -> State:
     return feature_register[env_name](env)
 
 
-def state_to_bitstring(state: Tuple[bool, ...]) -> str:
+def state_to_bitstring(state: State) -> str:
     return "".join(str(int(s)) for s in state)
 
 
-def bitstring_to_state(s: str) -> Tuple[bool, ...]:
+def bitstring_to_state(s: str) -> State:
     return tuple(c == "1" for c in s)
 
 
-def state_to_string(state: Tuple[bool, ...], env_name: str) -> str:
+def state_to_string(state: State, env_name: str) -> str:
     return "\n".join(header_register[env_name][i] for i, s in enumerate(state) if s)
 
 
-def state_to_pretty_string(state: Tuple[bool, ...], env_name: str) -> str:
+def state_to_pretty_string(state: State, env_name: str) -> str:
     return "    ".join(
         intersperse(
             items=[header_register[env_name][i] for i in range(len(state)) if state[i]],

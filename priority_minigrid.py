@@ -3,11 +3,12 @@
 from typing import List, Dict, Callable, Set
 from copy import deepcopy
 from random import Random
-from collections import deque
+import heapq
 
 from trace_minigrid import Trace, State
 from graph_minigrid import TransitionGraph
 from learner_minigrid import train_policy, plot_policy
+from policy_minigrid import progress_register
 from verifier_minigrid import verify_policy, verify_policy_on_envs
 from utils import (
     csv_to_positive_samples_dict,
@@ -27,7 +28,7 @@ from minigrid.core.constants import ACT_SET
 from minigrid.minigrid_env import MiniGridEnv
 
 
-def correct_single_trace(
+def correct_single_trace_priority(
     trace: Trace,
     policy: Callable[[MiniGridEnv], str],
     decided_samples: Dict[State, str],
@@ -36,7 +37,7 @@ def correct_single_trace(
     all_states: Set[State],
 ):
     env, _, _, _, _ = trace[0]
-    trace_queue = deque([(trace, dict())])
+    trace_queue = [(progress_register[env_name](trace[-1][3]), trace, dict())]
     num_traces = 1
     graph.add_trace(trace)
     for _, s, _, _, s_n in trace.get_abstract_trace():
@@ -44,7 +45,7 @@ def correct_single_trace(
         all_states.add(s_n)
 
     while len(trace_queue):
-        current_trace, current_ss = trace_queue.popleft()
+        _, current_trace, current_ss = heapq.heappop(trace_queue)
         if all(
             is_sample_present(decided_samples, s, a)
             or is_sample_present(current_ss, s, a)
@@ -93,7 +94,14 @@ def correct_single_trace(
 
                 num_traces += 1
                 debug(f"Number of Traces till now {num_traces}", end="\r")
-                trace_queue.append((sat_trace_pairs[0][1], deepcopy(new_ss)))
+                heapq.heappush(
+                    trace_queue,
+                    (
+                        progress_register[env_name](sat_trace_pairs[0][1][-1][3]),
+                        sat_trace_pairs[0][1],
+                        deepcopy(new_ss),
+                    ),
+                )
     return None
 
 
@@ -152,7 +160,7 @@ if __name__ == "__main__":
         working_traces, other_traces = get_new_working_and_other_traces(
             working_traces, other_traces, policy, traces
         )
-        suggested_samples = correct_single_trace(
+        suggested_samples = correct_single_trace_priority(
             working_traces[0],
             policy=policy,
             decided_samples=decided_samples,
@@ -186,7 +194,7 @@ if __name__ == "__main__":
             f"Total Number of New States Seen: {len(all_states) - len(decided_samples)}"
         )
         epoch += 1
-        graph.show_graph(name="bfs.html")
+        graph.show_graph(name="priority.html")
 
     print(f"Epochs to Completion: {epoch}")
     print(f"Total Number of Demo States: {len(decided_samples)}")

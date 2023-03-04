@@ -5,8 +5,8 @@ from copy import deepcopy
 from typing import List, Tuple
 from minigrid.minigrid_env import MiniGridEnv
 
-
-Transition = Tuple[MiniGridEnv, Tuple[bool, ...], str, MiniGridEnv, Tuple[bool, ...]]
+State = Tuple[bool, ...]
+Transition = Tuple[MiniGridEnv, State, str, MiniGridEnv, State]
 
 
 def remove_repeated_abstract_transitions(trace: List[Transition]):
@@ -49,6 +49,9 @@ class Trace(object):
 
     def __getitem__(self, index) -> Transition:
         return self.abstract_trace[index]
+
+    def __lt__(self, other) -> bool:
+        return True
 
     def get_stem(self) -> List[Transition]:
         return self.stem

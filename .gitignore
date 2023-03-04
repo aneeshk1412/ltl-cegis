@@ -6,4 +6,4 @@ __pycache__/
 lib/
 
 model.pkl
-nt.html
+*.html

@@ -19,10 +19,18 @@ class TransitionGraph(object):
         n_s = state_to_bitstring(next_state)
 
         if s not in self.graph:
-            self.graph.add_node(s, title=state_to_string(state, self.env_name))
+            self.graph.add_node(
+                s,
+                title=state_to_string(state, self.env_name),
+                color="green" if type == "demo" else "red",
+            )
 
         if n_s not in self.graph:
-            self.graph.add_node(n_s, title=state_to_string(next_state, self.env_name))
+            self.graph.add_node(
+                n_s,
+                title=state_to_string(next_state, self.env_name),
+                color="green" if type == "demo" else "red",
+            )
 
         type_set = set([type])
         try:
@@ -46,7 +54,7 @@ class TransitionGraph(object):
         for trace in traces:
             self.add_trace(trace)
 
-    def show_graph(self) -> None:
+    def show_graph(self, name="nt.html") -> None:
         nt = Network("500px", "500px", directed=True)
         nt.from_nx(self.graph)
-        nt.show("nt.html")
+        nt.show(name)

@@ -6,6 +6,8 @@ from minigrid.core.constants import DIR_TO_VEC
 from typing import Tuple
 from collections import deque
 
+from trace_minigrid import State
+
 
 def sign(v) -> int:
     return v // abs(v) if v != 0 else 0
@@ -61,7 +63,9 @@ def get_nearest(env: MiniGridEnv, obj: str, color: str | None = None) -> bool:
     return obj_pos
 
 
-def check(env: MiniGridEnv, pos: Tuple[int, ...], obj: str, color: str | None = None) -> bool:
+def check(
+    env: MiniGridEnv, pos: Tuple[int, ...], obj: str, color: str | None = None
+) -> bool:
     c = env.grid.get(*pos)
     if c is None:
         return False
@@ -98,6 +102,7 @@ def is_at_agents_right(env: MiniGridEnv, pos: Tuple[int, ...]) -> bool:
 #   Features for Decision Trees
 ##
 
+
 def common_features(env: MiniGridEnv, *args):
     return (
         is_present(env, *args),
@@ -107,17 +112,19 @@ def common_features(env: MiniGridEnv, *args):
         check(env, env.front_pos, *args),
     )
 
+
 def common_headers(*args):
     val = '"' + '", "'.join(args) + '"'
     return (
-        f'is_present({val})',
-        f'is_agent_facing(get_nearest({val}))',
-        f'is_at_agents_left(get_nearest({val}))',
-        f'is_at_agents_right(get_nearest({val}))',
-        f'check(front_pos, {val})',
+        f"is_present({val})",
+        f"is_agent_facing(get_nearest({val}))",
+        f"is_at_agents_left(get_nearest({val}))",
+        f"is_at_agents_right(get_nearest({val}))",
+        f"check(front_pos, {val})",
     )
 
-def features_Empty(env: MiniGridEnv) -> Tuple[bool, ...]:
+
+def features_Empty(env: MiniGridEnv) -> State:
     features = (
         is_agent_on(env, get_nearest(env, "goal")),
         check(env, env.front_pos, "empty"),
@@ -125,6 +132,7 @@ def features_Empty(env: MiniGridEnv) -> Tuple[bool, ...]:
         *common_features(env, "goal"),
     )
     return features
+
 
 def header_Empty() -> Tuple[str, ...]:
     return (
@@ -134,7 +142,8 @@ def header_Empty() -> Tuple[str, ...]:
         *common_headers("goal"),
     )
 
-def features_LavaGap(env: MiniGridEnv) -> Tuple[bool, ...]:
+
+def features_LavaGap(env: MiniGridEnv) -> State:
     features = (
         is_agent_on(env, get_nearest(env, "goal")),
         check(env, env.front_pos, "empty"),
@@ -143,6 +152,7 @@ def features_LavaGap(env: MiniGridEnv) -> Tuple[bool, ...]:
         *common_features(env, "goal"),
     )
     return features
+
 
 def header_LavaGap() -> Tuple[str, ...]:
     return (
@@ -153,7 +163,8 @@ def header_LavaGap() -> Tuple[str, ...]:
         *common_headers("goal"),
     )
 
-def features_DoorKey(env: MiniGridEnv) -> Tuple[bool, ...]:
+
+def features_DoorKey(env: MiniGridEnv) -> State:
     features = (
         is_agent_on(env, get_nearest(env, "goal")),
         check(env, env.front_pos, "empty"),
@@ -163,6 +174,7 @@ def features_DoorKey(env: MiniGridEnv) -> Tuple[bool, ...]:
         *common_features(env, "key"),
     )
     return features
+
 
 def header_DoorKey() -> Tuple[str, ...]:
     return (
@@ -174,7 +186,8 @@ def header_DoorKey() -> Tuple[str, ...]:
         *common_headers("key"),
     )
 
-def features_MultiKeyDoorKey_1(env: MiniGridEnv) -> Tuple[bool, ...]:
+
+def features_MultiKeyDoorKey_1(env: MiniGridEnv) -> State:
     features = (
         is_agent_on(env, get_nearest(env, "goal")),
         check(env, env.front_pos, "empty"),
@@ -184,6 +197,7 @@ def features_MultiKeyDoorKey_1(env: MiniGridEnv) -> Tuple[bool, ...]:
         *common_features(env, "key", "red"),
     )
     return features
+
 
 def header_MultiKeyDoorKey_1() -> Tuple[str, ...]:
     return (
@@ -195,8 +209,9 @@ def header_MultiKeyDoorKey_1() -> Tuple[str, ...]:
         *common_headers("key", "red"),
     )
 
+
 def progress_MultiKeyDoorKey_1(env: MiniGridEnv) -> int:
-    num_keys_remaining = sum(is_present(env, "key", c) for c in {'green'})
+    num_keys_remaining = sum(is_present(env, "key", c) for c in {"green"})
     if num_keys_remaining == 1:
         return 0
     ## All keys picked
@@ -208,7 +223,7 @@ def progress_MultiKeyDoorKey_1(env: MiniGridEnv) -> int:
     return 3
 
 
-def features_MultiKeyDoorKey_2(env: MiniGridEnv) -> Tuple[bool, ...]:
+def features_MultiKeyDoorKey_2(env: MiniGridEnv) -> State:
     features = (
         is_agent_on(env, get_nearest(env, "goal")),
         check(env, env.front_pos, "empty"),
@@ -219,6 +234,7 @@ def features_MultiKeyDoorKey_2(env: MiniGridEnv) -> Tuple[bool, ...]:
         *common_features(env, "key", "green"),
     )
     return features
+
 
 def header_MultiKeyDoorKey_2() -> Tuple[str, ...]:
     return (
@@ -231,8 +247,9 @@ def header_MultiKeyDoorKey_2() -> Tuple[str, ...]:
         *common_headers("key", "green"),
     )
 
+
 def progress_MultiKeyDoorKey_2(env: MiniGridEnv) -> int:
-    num_keys_remaining = sum(is_present(env, "key", c) for c in {'green'})
+    num_keys_remaining = sum(is_present(env, "key", c) for c in {"green"})
     if num_keys_remaining == 2:
         return 0
     if num_keys_remaining == 1:
@@ -245,7 +262,8 @@ def progress_MultiKeyDoorKey_2(env: MiniGridEnv) -> int:
         return 3
     return 4
 
-def features_MultiKeyDoorKey_3(env: MiniGridEnv) -> Tuple[bool, ...]:
+
+def features_MultiKeyDoorKey_3(env: MiniGridEnv) -> State:
     features = (
         is_agent_on(env, get_nearest(env, "goal")),
         check(env, env.front_pos, "empty"),
@@ -257,6 +275,7 @@ def features_MultiKeyDoorKey_3(env: MiniGridEnv) -> Tuple[bool, ...]:
         *common_features(env, "key", "blue"),
     )
     return features
+
 
 def header_MultiKeyDoorKey_3() -> Tuple[str, ...]:
     return (
@@ -270,8 +289,9 @@ def header_MultiKeyDoorKey_3() -> Tuple[str, ...]:
         *common_headers("key", "blue"),
     )
 
+
 def progress_MultiKeyDoorKey_3(env: MiniGridEnv) -> int:
-    num_keys_remaining = sum(is_present(env, "key", c) for c in {'green'})
+    num_keys_remaining = sum(is_present(env, "key", c) for c in {"green"})
     if num_keys_remaining == 3:
         return 0
     if num_keys_remaining == 2:
@@ -286,7 +306,8 @@ def progress_MultiKeyDoorKey_3(env: MiniGridEnv) -> int:
         return 4
     return 5
 
-def features_MultiKeyDoorKey_4(env: MiniGridEnv) -> Tuple[bool, ...]:
+
+def features_MultiKeyDoorKey_4(env: MiniGridEnv) -> State:
     features = (
         is_agent_on(env, get_nearest(env, "goal")),
         check(env, env.front_pos, "empty"),
@@ -299,6 +320,7 @@ def features_MultiKeyDoorKey_4(env: MiniGridEnv) -> Tuple[bool, ...]:
         *common_features(env, "key", "purple"),
     )
     return features
+
 
 def header_MultiKeyDoorKey_4() -> Tuple[str, ...]:
     return (
@@ -313,8 +335,9 @@ def header_MultiKeyDoorKey_4() -> Tuple[str, ...]:
         *common_headers("key", "purple"),
     )
 
+
 def progress_MultiKeyDoorKey_4(env: MiniGridEnv) -> int:
-    num_keys_remaining = sum(is_present(env, "key", c) for c in {'green'})
+    num_keys_remaining = sum(is_present(env, "key", c) for c in {"green"})
     if num_keys_remaining == 4:
         return 0
     if num_keys_remaining == 3:
@@ -331,7 +354,8 @@ def progress_MultiKeyDoorKey_4(env: MiniGridEnv) -> int:
         return 5
     return 6
 
-def features_MultiKeyDoorKey_5(env: MiniGridEnv) -> Tuple[bool, ...]:
+
+def features_MultiKeyDoorKey_5(env: MiniGridEnv) -> State:
     features = (
         is_agent_on(env, get_nearest(env, "goal")),
         check(env, env.front_pos, "empty"),
@@ -345,6 +369,7 @@ def features_MultiKeyDoorKey_5(env: MiniGridEnv) -> Tuple[bool, ...]:
         *common_features(env, "key", "yellow"),
     )
     return features
+
 
 def header_MultiKeyDoorKey_5() -> Tuple[str, ...]:
     return (
@@ -360,8 +385,9 @@ def header_MultiKeyDoorKey_5() -> Tuple[str, ...]:
         *common_headers("key", "yellow"),
     )
 
+
 def progress_MultiKeyDoorKey_5(env: MiniGridEnv) -> int:
-    num_keys_remaining = sum(is_present(env, "key", c) for c in {'green'})
+    num_keys_remaining = sum(is_present(env, "key", c) for c in {"green"})
     if num_keys_remaining == 5:
         return 0
     if num_keys_remaining == 4:
@@ -380,7 +406,8 @@ def progress_MultiKeyDoorKey_5(env: MiniGridEnv) -> int:
         return 6
     return 7
 
-def features_BlockedUnlockPickup(env: MiniGridEnv) -> Tuple[bool, ...]:
+
+def features_BlockedUnlockPickup(env: MiniGridEnv) -> State:
     features = (
         is_agent_on(env, get_nearest(env, "goal")),
         check(env, env.front_pos, "empty"),
@@ -392,6 +419,7 @@ def features_BlockedUnlockPickup(env: MiniGridEnv) -> Tuple[bool, ...]:
     )
     return features
 
+
 def header_BlockedUnlockPickup() -> Tuple[str, ...]:
     return (
         'is_agent_on(get_nearest("goal"))',
@@ -402,6 +430,7 @@ def header_BlockedUnlockPickup() -> Tuple[str, ...]:
         *common_headers("key"),
         *common_headers("ball"),
     )
+
 
 header_register = {
     "MiniGrid-Empty-Random-6x6-v0": header_Empty(),
