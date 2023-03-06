@@ -11,6 +11,7 @@ from utils import (
     csv_to_positive_samples_dict,
     pickle_to_demo_traces,
     state_to_bitstring,
+    state_to_string,
     debug,
 )
 
@@ -154,6 +155,13 @@ def print_exactly_one_condition(
         debug(z3.PbEq([(name_to_z3bool[sample_to_name(s, a)], 1) for a in ACT_SET], 1))
 
 
+def add_dont_try_older_speculation_set_condition(
+    old_speculation_sets: List[Set[str]],
+    name_to_z3bool: Dict[str, z3.Bool],
+):
+    pass
+
+
 if __name__ == "__main__":
     args = get_arguments()
     verifier_rng = Random(args.verifier_seed)
@@ -163,6 +171,7 @@ if __name__ == "__main__":
     speculated_samples = dict()
 
     all_traces: List[Trace] = list()
+    old_speculation_sets: List[Set[str]] = list()
 
     graph = TransitionGraph(env_name=args.env_name)
     graph.add_traces(positive_demos)
@@ -246,6 +255,7 @@ if __name__ == "__main__":
 
         assignment = solver.model()
         speculated_samples = dict()
+        speculation_set = set()
         for s in all_states:
             for a in ACT_SET:
                 if assignment[name_to_z3bool[sample_to_name(s, a)]]:
@@ -255,10 +265,19 @@ if __name__ == "__main__":
                     if s in speculated_samples:
                         raise Exception("Odd, 2 actions for same state")
                     speculated_samples[s] = a
+                    speculation_set.add(sample_to_name(s, a))
+
+        # for s in speculated_samples:
+        #     debug(state_to_string(s, args.env_name), speculated_samples[s])
+        # debug()
+
         debug(f"End of Epoch: {epoch}")
-        debug(f"Total Number of New States Seen: {len(all_states) - len(decided_samples)}")
+        debug(
+            f"Total Number of New States Seen: {len(all_states) - len(decided_samples)}"
+        )
+        debug()
         epoch += 1
-        graph.show_graph(name='bsp.html')
+        graph.show_graph(name="bsp.html")
 
     print(f"Epochs to Completion: {epoch}")
     print(f"Total Number of Demo States: {len(decided_samples)}")

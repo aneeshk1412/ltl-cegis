@@ -9,7 +9,7 @@ from trace_minigrid import Trace, State
 from graph_minigrid import TransitionGraph
 from learner_minigrid import train_policy, plot_policy
 from policy_minigrid import progress_register
-from verifier_minigrid import verify_policy, verify_policy_on_envs
+from verifier_minigrid import verify_policy, simulate_policy_on_list_of_envs
 from utils import (
     csv_to_positive_samples_dict,
     pickle_to_demo_traces,
@@ -66,7 +66,7 @@ def correct_single_trace_priority(
                 new_ss[s] = a_p
                 new_policy = get_augmented_policy(policy, new_ss, env_name)
 
-                sat, sat_trace_pairs = verify_policy_on_envs(
+                sat, sat_trace_pairs = simulate_policy_on_list_of_envs(
                     env_name=env_name,
                     env_list=[e],
                     policy=new_policy,
@@ -79,7 +79,7 @@ def correct_single_trace_priority(
                 if sat:
                     print(f"Traces seen before correcting this trace: {num_traces}")
                     print()
-                    sat, sat_trace_pairs = verify_policy_on_envs(
+                    sat, sat_trace_pairs = simulate_policy_on_list_of_envs(
                         env_name=env_name,
                         env_list=[env],
                         policy=new_policy,

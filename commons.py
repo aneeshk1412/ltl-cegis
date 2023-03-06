@@ -3,7 +3,7 @@ from typing import Callable
 from utils import state_to_pretty_string
 from trace_minigrid import Trace
 from dsl_minigrid import feature_register
-from verifier_minigrid import verify_policy_on_envs
+from verifier_minigrid import simulate_policy_on_list_of_envs
 
 from minigrid.minigrid_env import MiniGridEnv
 
@@ -91,14 +91,14 @@ def resolve_conflicts(
     policy_A = get_augmented_policy(policy, ss_A, env_name)
     policy_B = get_augmented_policy(policy, ss_B, env_name)
 
-    sat_A, sat_trace_pairs_A = verify_policy_on_envs(
+    sat_A, sat_trace_pairs_A = simulate_policy_on_list_of_envs(
         env_name=env_name,
         env_list=[t[0][0] for t in working_traces] + [t[0][0] for t in other_traces],
         policy=policy_A,
         show_window=False,
     )
 
-    sat_B, sat_trace_pairs_B = verify_policy_on_envs(
+    sat_B, sat_trace_pairs_B = simulate_policy_on_list_of_envs(
         env_name=env_name,
         env_list=[t[0][0] for t in working_traces] + [t[0][0] for t in other_traces],
         policy=policy_B,
@@ -118,14 +118,14 @@ def resolve_conflicts(
     print("Failing envs A")
     for i, (s, t) in enumerate(sat_trace_pairs_A):
         if not s:
-            _, _ = verify_policy_on_envs(
+            _, _ = simulate_policy_on_list_of_envs(
                 env_name=env_name,
                 env_list=[t[0][0]],
                 policy=policy_A,
                 show_window=True,
                 block=True,
             )
-            _, _ = verify_policy_on_envs(
+            _, _ = simulate_policy_on_list_of_envs(
                 env_name=env_name,
                 env_list=[t[0][0]],
                 policy=policy,
@@ -135,14 +135,14 @@ def resolve_conflicts(
     print("Failing envs B")
     for i, (s, t) in enumerate(sat_trace_pairs_B):
         if not s:
-            _, _ = verify_policy_on_envs(
+            _, _ = simulate_policy_on_list_of_envs(
                 env_name=env_name,
                 env_list=[t[0][0]],
                 policy=policy_B,
                 show_window=True,
                 block=True,
             )
-            _, _ = verify_policy_on_envs(
+            _, _ = simulate_policy_on_list_of_envs(
                 env_name=env_name,
                 env_list=[t[0][0]],
                 policy=policy,

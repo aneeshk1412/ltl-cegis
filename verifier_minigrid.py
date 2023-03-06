@@ -84,7 +84,7 @@ def verify_policy(
     return sat, traces
 
 
-def verify_policy_on_envs(
+def simulate_policy_on_list_of_envs(
     env_name: str,
     env_list: List[MiniGridEnv],
     policy: Callable[[MiniGridEnv], str],
@@ -138,7 +138,7 @@ if __name__ == "__main__":
     env = traces[0][len(traces[0]) // 2][0]
     env_list = [env]
 
-    sat, sat_trace_pairs = verify_policy_on_envs(
+    sat, sat_trace_pairs = simulate_policy_on_list_of_envs(
         env_name=env_name,
         env_list=env_list,
         policy=ground_truth_asp_register[env_name],
