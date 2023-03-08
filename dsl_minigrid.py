@@ -86,6 +86,12 @@ def is_agent_facing(env: MiniGridEnv, pos: Tuple[int, ...]) -> bool:
     return dot(DIR_TO_VEC[env.agent_dir], sub(pos, env.agent_pos)) > 0
 
 
+def is_at_agents_back(env: MiniGridEnv, pos: Tuple[int, ...]) -> bool:
+    if not pos:
+        return False
+    return dot(DIR_TO_VEC[env.agent_dir], sub(pos, env.agent_pos)) < 0
+
+
 def is_at_agents_left(env: MiniGridEnv, pos: Tuple[int, ...]) -> bool:
     if not pos:
         return False
@@ -107,6 +113,7 @@ def common_features(env: MiniGridEnv, *args):
     return (
         is_present(env, *args),
         is_agent_facing(env, get_nearest(env, *args)),
+        is_at_agents_back(env, get_nearest(env, *args)),
         is_at_agents_left(env, get_nearest(env, *args)),
         is_at_agents_right(env, get_nearest(env, *args)),
         check(env, env.front_pos, *args),
@@ -118,6 +125,7 @@ def common_headers(*args):
     return (
         f"is_present({val})",
         f"is_agent_facing(get_nearest({val}))",
+        f"is_at_agents_back(get_nearest({val}))",
         f"is_at_agents_left(get_nearest({val}))",
         f"is_at_agents_right(get_nearest({val}))",
         f"check(front_pos, {val})",
@@ -407,6 +415,204 @@ def progress_MultiKeyDoorKey_5(env: MiniGridEnv) -> int:
     return 7
 
 
+####### MultiKey
+
+def features_MultiKey_1(env: MiniGridEnv) -> State:
+    features = (
+        is_agent_on(env, get_nearest(env, "goal")),
+        check(env, env.front_pos, "empty"),
+        check(env, env.front_pos, "wall"),
+        *common_features(env, "goal"),
+        *common_features(env, "key", "red"),
+    )
+    return features
+
+
+def header_MultiKey_1() -> Tuple[str, ...]:
+    return (
+        'is_agent_on(get_nearest("goal"))',
+        'check(front_pos, "empty")',
+        'check(front_pos, "wall")',
+        *common_headers("goal"),
+        *common_headers("key", "red"),
+    )
+
+
+def progress_MultiKey_1(env: MiniGridEnv) -> int:
+    num_keys_remaining = sum(is_present(env, "key", c) for c in {"green"})
+    if num_keys_remaining == 1:
+        return 0
+    ## All keys picked
+    if not is_agent_on(env, get_nearest(env, "goal")):
+        return 1
+    return 2
+
+
+def features_MultiKey_2(env: MiniGridEnv) -> State:
+    features = (
+        is_agent_on(env, get_nearest(env, "goal")),
+        check(env, env.front_pos, "empty"),
+        check(env, env.front_pos, "wall"),
+        *common_features(env, "goal"),
+        *common_features(env, "key", "red"),
+        *common_features(env, "key", "green"),
+    )
+    return features
+
+
+def header_MultiKey_2() -> Tuple[str, ...]:
+    return (
+        'is_agent_on(get_nearest("goal"))',
+        'check(front_pos, "empty")',
+        'check(front_pos, "wall")',
+        *common_headers("goal"),
+        *common_headers("key", "red"),
+        *common_headers("key", "green"),
+    )
+
+
+def progress_MultiKey_2(env: MiniGridEnv) -> int:
+    num_keys_remaining = sum(is_present(env, "key", c) for c in {"green"})
+    if num_keys_remaining == 2:
+        return 0
+    if num_keys_remaining == 1:
+        return 1
+    ## Both keys picked
+    if not is_agent_on(env, get_nearest(env, "goal")):
+        return 2
+    return 3
+
+
+def features_MultiKey_3(env: MiniGridEnv) -> State:
+    features = (
+        is_agent_on(env, get_nearest(env, "goal")),
+        check(env, env.front_pos, "empty"),
+        check(env, env.front_pos, "wall"),
+        *common_features(env, "goal"),
+        *common_features(env, "key", "red"),
+        *common_features(env, "key", "green"),
+        *common_features(env, "key", "blue"),
+    )
+    return features
+
+
+def header_MultiKey_3() -> Tuple[str, ...]:
+    return (
+        'is_agent_on(get_nearest("goal"))',
+        'check(front_pos, "empty")',
+        'check(front_pos, "wall")',
+        *common_headers("goal"),
+        *common_headers("key", "red"),
+        *common_headers("key", "green"),
+        *common_headers("key", "blue"),
+    )
+
+
+def progress_MultiKey_3(env: MiniGridEnv) -> int:
+    num_keys_remaining = sum(is_present(env, "key", c) for c in {"green"})
+    if num_keys_remaining == 3:
+        return 0
+    if num_keys_remaining == 2:
+        return 1
+    if num_keys_remaining == 1:
+        return 2
+    ## Both keys picked
+    if not is_agent_on(env, get_nearest(env, "goal")):
+        return 3
+    return 4
+
+
+def features_MultiKey_4(env: MiniGridEnv) -> State:
+    features = (
+        is_agent_on(env, get_nearest(env, "goal")),
+        check(env, env.front_pos, "empty"),
+        check(env, env.front_pos, "wall"),
+        *common_features(env, "goal"),
+        *common_features(env, "key", "red"),
+        *common_features(env, "key", "green"),
+        *common_features(env, "key", "blue"),
+        *common_features(env, "key", "purple"),
+    )
+    return features
+
+
+def header_MultiKey_4() -> Tuple[str, ...]:
+    return (
+        'is_agent_on(get_nearest("goal"))',
+        'check(front_pos, "empty")',
+        'check(front_pos, "wall")',
+        *common_headers("goal"),
+        *common_headers("key", "red"),
+        *common_headers("key", "green"),
+        *common_headers("key", "blue"),
+        *common_headers("key", "purple"),
+    )
+
+
+def progress_MultiKey_4(env: MiniGridEnv) -> int:
+    num_keys_remaining = sum(is_present(env, "key", c) for c in {"green"})
+    if num_keys_remaining == 4:
+        return 0
+    if num_keys_remaining == 3:
+        return 1
+    if num_keys_remaining == 2:
+        return 2
+    if num_keys_remaining == 1:
+        return 3
+    ## All keys picked
+    if not is_agent_on(env, get_nearest(env, "goal")):
+        return 4
+    return 5
+
+
+def features_MultiKey_5(env: MiniGridEnv) -> State:
+    features = (
+        is_agent_on(env, get_nearest(env, "goal")),
+        check(env, env.front_pos, "empty"),
+        check(env, env.front_pos, "wall"),
+        *common_features(env, "goal"),
+        *common_features(env, "key", "red"),
+        *common_features(env, "key", "green"),
+        *common_features(env, "key", "blue"),
+        *common_features(env, "key", "purple"),
+        *common_features(env, "key", "yellow"),
+    )
+    return features
+
+
+def header_MultiKey_5() -> Tuple[str, ...]:
+    return (
+        'is_agent_on(get_nearest("goal"))',
+        'check(front_pos, "empty")',
+        'check(front_pos, "wall")',
+        *common_headers("goal"),
+        *common_headers("key", "red"),
+        *common_headers("key", "green"),
+        *common_headers("key", "blue"),
+        *common_headers("key", "purple"),
+        *common_headers("key", "yellow"),
+    )
+
+
+def progress_MultiKey_5(env: MiniGridEnv) -> int:
+    num_keys_remaining = sum(is_present(env, "key", c) for c in {"green"})
+    if num_keys_remaining == 5:
+        return 0
+    if num_keys_remaining == 4:
+        return 1
+    if num_keys_remaining == 3:
+        return 2
+    if num_keys_remaining == 2:
+        return 3
+    if num_keys_remaining == 1:
+        return 4
+    ## All keys picked
+    if not is_agent_on(env, get_nearest(env, "goal")):
+        return 5
+    return 6
+
+
+
 def features_BlockedUnlockPickup(env: MiniGridEnv) -> State:
     features = (
         is_agent_on(env, get_nearest(env, "goal")),
@@ -441,6 +647,11 @@ header_register = {
     "MiniGrid-MultiKeyDoorKey-16x16-3": header_MultiKeyDoorKey_3(),
     "MiniGrid-MultiKeyDoorKey-16x16-4": header_MultiKeyDoorKey_4(),
     "MiniGrid-MultiKeyDoorKey-16x16-5": header_MultiKeyDoorKey_5(),
+    "MiniGrid-MultiKey-16x16-1": header_MultiKey_1(),
+    "MiniGrid-MultiKey-16x16-2": header_MultiKey_2(),
+    "MiniGrid-MultiKey-16x16-3": header_MultiKey_3(),
+    "MiniGrid-MultiKey-16x16-4": header_MultiKey_4(),
+    "MiniGrid-MultiKey-16x16-5": header_MultiKey_5(),
     "MiniGrid-BlockedUnlockPickup-v0": header_BlockedUnlockPickup(),
 }
 
@@ -453,6 +664,11 @@ feature_register = {
     "MiniGrid-MultiKeyDoorKey-16x16-3": features_MultiKeyDoorKey_3,
     "MiniGrid-MultiKeyDoorKey-16x16-4": features_MultiKeyDoorKey_4,
     "MiniGrid-MultiKeyDoorKey-16x16-5": features_MultiKeyDoorKey_5,
+    "MiniGrid-MultiKey-16x16-1": features_MultiKey_1,
+    "MiniGrid-MultiKey-16x16-2": features_MultiKey_2,
+    "MiniGrid-MultiKey-16x16-3": features_MultiKey_3,
+    "MiniGrid-MultiKey-16x16-4": features_MultiKey_4,
+    "MiniGrid-MultiKey-16x16-5": features_MultiKey_5,
     "MiniGrid-BlockedUnlockPickup-v0": features_BlockedUnlockPickup,
 }
 
@@ -465,5 +681,10 @@ progress_register = {
     "MiniGrid-MultiKeyDoorKey-16x16-3": progress_MultiKeyDoorKey_3,
     "MiniGrid-MultiKeyDoorKey-16x16-4": progress_MultiKeyDoorKey_4,
     "MiniGrid-MultiKeyDoorKey-16x16-5": progress_MultiKeyDoorKey_5,
+    "MiniGrid-MultiKey-16x16-1": progress_MultiKey_1,
+    "MiniGrid-MultiKey-16x16-2": progress_MultiKey_2,
+    "MiniGrid-MultiKey-16x16-3": progress_MultiKey_3,
+    "MiniGrid-MultiKey-16x16-4": progress_MultiKey_4,
+    "MiniGrid-MultiKey-16x16-5": progress_MultiKey_5,
     # "MiniGrid-BlockedUnlockPickup-v0": progress_BlockedUnlockPickup,
 }

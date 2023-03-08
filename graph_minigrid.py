@@ -13,7 +13,7 @@ class TransitionGraph(object):
         self.env_name = env_name
         self.graph = nx.MultiDiGraph()
 
-    def add_transition(self, transition: Transition, type: str) -> None:
+    def add_transition(self, transition: Transition, type: str, label=None) -> None:
         _, state, act, _, next_state = transition
         s = state_to_bitstring(state)
         n_s = state_to_bitstring(next_state)
@@ -44,17 +44,21 @@ class TransitionGraph(object):
             color = "green"
         elif "cex" in type_set:
             color = "red"
-        self.graph.add_edge(s, n_s, key=act, label=act, color=color, type=type_set)
+        if label is None:
+            self.graph.add_edge(s, n_s, key=act, label=act, color=color, type=type_set)
+        else:
+            self.graph.add_edge(s, n_s, key=(act, label), label=', '.join([act, label]), color=color, type=type_set)
 
-    def add_trace(self, trace: Trace) -> None:
+    def add_trace(self, trace: Trace, label=None) -> None:
         for transition in trace:
-            self.add_transition(transition, trace.type)
+            self.add_transition(transition, trace.type, label=label)
 
-    def add_traces(self, traces: List[Trace]) -> None:
+    def add_traces(self, traces: List[Trace], label=None) -> None:
         for trace in traces:
-            self.add_trace(trace)
+            self.add_trace(trace, label=label)
 
     def show_graph(self, name="nt.html") -> None:
         nt = Network("500px", "500px", directed=True)
         nt.from_nx(self.graph)
+        nt.show_buttons(filter_=['physics'])
         nt.show(name)

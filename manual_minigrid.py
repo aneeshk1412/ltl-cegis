@@ -14,7 +14,7 @@ class ManualControl(Runner):
         super().run_internal()
 
     def stopping_cond(self) -> bool:
-        return self.num_runs is None or self.cur_run <= self.num_runs
+        return self.sat and (self.num_runs is None or self.cur_run <= self.num_runs)
 
     def process_trace(self, sat: bool) -> None:
         pass

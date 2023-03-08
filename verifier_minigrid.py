@@ -92,6 +92,7 @@ def simulate_policy_on_list_of_envs(
     max_steps: int = 100,
     show_window: bool = False,
     block: bool = False,
+    detect_collisions: bool = True,
 ) -> Tuple[bool, List[Tuple[bool, Trace]]]:
     window = Window(env_name) if show_window else None
 
@@ -104,10 +105,33 @@ def simulate_policy_on_list_of_envs(
         window=window,
         block=block,
         env_list=[deepcopy(e) for e in env_list],
-        detect_collision=True,
+        detect_collision=detect_collisions,
     )
     sat, sat_trace_pairs = verifier.run()
     return sat, sat_trace_pairs
+
+
+def simulate_policy_on_env(
+    env_name: str,
+    env: MiniGridEnv,
+    policy: Callable[[MiniGridEnv], str],
+    seed: int | None = None,
+    max_steps: int = 100,
+    show_window: bool = False,
+    block: bool = False,
+    detect_collisions: bool = True,
+) -> Tuple[bool, Trace]:
+    sat, sat_trace_pairs = simulate_policy_on_list_of_envs(
+        env_name=env_name,
+        env_list=[env],
+        policy=policy,
+        seed=seed,
+        max_steps=max_steps,
+        show_window=show_window,
+        block=block,
+        detect_collisions=detect_collisions,
+    )
+    return sat_trace_pairs[0][0], sat_trace_pairs[0][1]
 
 
 if __name__ == "__main__":

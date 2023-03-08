@@ -37,13 +37,16 @@ def state_to_string(state: State, env_name: str) -> str:
 
 
 def state_to_pretty_string(state: State, env_name: str) -> str:
-    return "    ".join(
+    s = "    ".join(
         intersperse(
             items=[header_register[env_name][i] for i in range(len(state)) if state[i]],
             sep="\n",
             space=2,
         )
     )
+    if s[-1] != "\n":
+        s = s[:-1]
+    return s
 
 
 def bitstring_to_string(s: str, env_name: str) -> str:

@@ -5,7 +5,7 @@ from random import Random
 from copy import deepcopy
 from typing import Callable, List
 
-from utils import intersperse
+from utils import state_to_pretty_string
 from dsl_minigrid import feature_register, header_register
 
 from minigrid.utils.window import Window
@@ -134,11 +134,7 @@ class Runner(object):
         if self.window:
             frame = self.env.get_frame(agent_pov=False)
             state = self.obs_func(self.env)
-            caption = "    ".join(
-                intersperse(
-                    [self.headers[i] for i in range(len(state)) if state[i]], "\n", 2
-                )
-            )
+            caption = state_to_pretty_string(state, self.env_name)
             self.window.set_caption(f"Action: {key}\n" + caption)
             self.window.show_img(frame)
 
