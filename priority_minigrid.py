@@ -182,6 +182,18 @@ if __name__ == "__main__":
         )
 
         if suggested_samples is None:
+            print("Could not come up a consistent suggestion")
+            suggested_samples = correct_single_trace_priority(
+                working_traces[0],
+                policy=policy,
+                decided_samples=decided_samples,
+                speculated_samples=dict(),
+                env_name=args.env_name,
+                graph=graph,
+                all_states=all_states,
+            )
+
+        if suggested_samples is None:
             _, _ = simulate_policy_on_env(
                 env_name=args.env_name,
                 env=working_traces[0][0][0],

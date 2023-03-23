@@ -141,6 +141,8 @@ def resolve_conflicts(
     elif sat_rewrite:
         debug("New Works")
         return ss_rewrite
+    else:
+        return ss_rewrite
 
     combined_list = [t[0][0] for t in working_traces] + [t[0][0] for t in other_traces]
 
