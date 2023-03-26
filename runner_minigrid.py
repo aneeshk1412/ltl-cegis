@@ -10,6 +10,7 @@ from dsl_minigrid import feature_register, header_register
 
 from minigrid.utils.window import Window
 from minigrid.minigrid_env import MiniGridEnv
+from minigrid.core.actions import Actions
 
 
 def implies(b1: bool, b2: bool) -> bool:
@@ -66,13 +67,32 @@ class Runner(object):
         self.traces = []
         self.sat: bool = True
         self.key_to_action = {
-            "left": MiniGridEnv.Actions.left,
-            "right": MiniGridEnv.Actions.right,
-            "up": MiniGridEnv.Actions.forward,
-            " ": MiniGridEnv.Actions.toggle,
-            "pageup": MiniGridEnv.Actions.pickup,
-            "pagedown": MiniGridEnv.Actions.drop,
-            "enter": MiniGridEnv.Actions.done,
+            "left": Actions.left,
+            "right": Actions.right,
+            "up": Actions.forward,
+            "forward": Actions.forward,
+            " ": Actions.toggle,
+            "toggle": Actions.toggle,
+            "pageup": Actions.pickup,
+            "pickup": Actions.pickup,
+            "pagedown": Actions.drop,
+            "drop": Actions.drop,
+            "enter": Actions.done,
+            "done": Actions.done,
+        }
+        self.key_to_action_str = {
+            "left": "left",
+            "right": "right",
+            "up": "forward",
+            "forward": "forward",
+            " ": "toggle",
+            "toggle": "toggle",
+            "pageup": "pickup",
+            "pickup": "pickup",
+            "pagedown": "drop",
+            "drop": "drop",
+            "enter": "done",
+            "done": "done",
         }
 
     def run(self):
@@ -94,24 +114,24 @@ class Runner(object):
     def get_next_env(self) -> MiniGridEnv | None:
         if self.num_rruns is None:
             if self.cur_run <= len(self.env_list):
-                self.env_list[self.cur_run - 1].soft_reset(
-                    seed=self.seed, max_steps=self.max_steps
+                self.env_list[self.cur_run - 1].reset(
+                    soft=True, seed=self.seed, max_steps=self.max_steps
                 )
                 return self.env_list[self.cur_run - 1]
             elif self.renv is not None:
                 self.renv.reset(seed=self.rng.randrange(int(1e10)))
-                self.renv.soft_reset(seed=self.seed, max_steps=self.max_steps)
+                self.renv.reset(soft=True, seed=self.seed, max_steps=self.max_steps)
                 return self.renv
             else:
                 return None
         else:
             if self.cur_run <= self.num_rruns:
                 self.renv.reset(seed=self.rng.randrange(int(1e10)))
-                self.renv.soft_reset(seed=self.seed, max_steps=self.max_steps)
+                self.renv.reset(soft=True, seed=self.seed, max_steps=self.max_steps)
                 return self.renv
             elif self.cur_run <= self.num_rruns + len(self.env_list):
-                self.env_list[self.cur_run - self.num_rruns - 1].soft_reset(
-                    seed=self.seed, max_steps=self.max_steps
+                self.env_list[self.cur_run - self.num_rruns - 1].reset(
+                    soft=True, seed=self.seed, max_steps=self.max_steps
                 )
                 return self.env_list[self.cur_run - self.num_rruns - 1]
             else:
@@ -156,7 +176,7 @@ class Runner(object):
 
         next_state = deepcopy(self.env)
         self.traces[-1].append(
-            (state, self.obs_func(state), key, next_state, self.obs_func(next_state))
+            (state, self.obs_func(state), self.key_to_action_str[key], next_state, self.obs_func(next_state))
         )
 
         if truncated or (self.detect_collision and str(self.env) in self.seen_envs):
