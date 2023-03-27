@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 import z3
 from random import Random
+from copy import deepcopy
 from typing import List, Dict, Set
 
 from trace_minigrid import Trace, State
 from graph_minigrid import TransitionGraph
 from learner_minigrid import train_policy, plot_policy
-from verifier_minigrid import verify_policy
+from verifier_minigrid import verify_policy, simulate_policy_on_list_of_envs
 from utils import (
     csv_to_positive_samples_dict,
     pickle_to_demo_traces,
@@ -79,7 +80,41 @@ def sample_to_name(s: State, a: str):
     return state_to_bitstring(s) + "_" + a
 
 
-def add_decided_condition(
+def add_singleton_constraint(solver: z3.Solver, vars: List[z3.Bool]):
+    solver.add(z3.And(z3.AtMost(*vars, 1), z3.Or(vars)))
+
+
+def add_state(
+    solver: z3.Solver,
+    name_to_z3bool: Dict[str, z3.Bool],
+    all_states: Set[State],
+    state: State,
+):
+    if state not in all_states:
+        all_states.add(state)
+        name_to_z3bool.update(
+            [
+                (sample_to_name(state, a), z3.Bool(sample_to_name(state, a)))
+                for a in ACT_SET
+            ]
+        )
+        add_singleton_constraint(
+            solver, [name_to_z3bool[sample_to_name(state, a)] for a in ACT_SET]
+        )
+
+
+def add_states_of_trace(
+    solver: z3.Solver,
+    name_to_z3bool: Dict[str, z3.Bool],
+    all_states: Set[State],
+    trace: Trace,
+):
+    for _, s, _, _, _ in trace.get_abstract_trace():
+        add_state(solver, name_to_z3bool, all_states, s)
+    add_state(solver, name_to_z3bool, all_states, trace[-1][4])
+
+
+def add_decided_samples_condition(
     decided_samples: Dict[State, str],
     name_to_z3bool: Dict[str, z3.Bool],
     solver: z3.Solver,
@@ -97,23 +132,40 @@ def print_decided_condition(
         debug(name_to_z3bool[sample_to_name(s, a)])
 
 
-def add_traces_condition(
-    all_traces: List[Trace],
+def add_successful_condition(
+    trace: Trace,
+    all_states: Set[State],
     decided_samples: Dict[State, str],
     name_to_z3bool: Dict[str, z3.Bool],
     solver: z3.Solver,
 ):
+    add_states_of_trace(solver, name_to_z3bool, all_states, trace)
     solver.add(
-        *[
-            z3.Or(
-                [
-                    z3.Not(name_to_z3bool[sample_to_name(s, a)])
-                    for _, s, a, _, _ in trace.get_abstract_trace()
-                    if s not in decided_samples
-                ]
-            )
-            for trace in all_traces
-        ]
+        z3.And(
+            [
+                name_to_z3bool[sample_to_name(s, a)]
+                for _, s, a, _, _ in trace.get_abstract_trace()
+            ]
+        )
+    )
+
+
+def add_counterexample_condition(
+    counterexample: Trace,
+    all_states: Set[State],
+    decided_samples: Dict[State, str],
+    name_to_z3bool: Dict[str, z3.Bool],
+    solver: z3.Solver,
+):
+    add_states_of_trace(solver, name_to_z3bool, all_states, counterexample)
+    solver.add(
+        z3.Or(
+            [
+                z3.Not(name_to_z3bool[sample_to_name(s, a)])
+                for _, s, a, _, _ in counterexample.get_abstract_trace()
+                if s not in decided_samples
+            ]
+        )
     )
 
 
@@ -134,34 +186,6 @@ def print_traces_condition(
         )
 
 
-def add_exactly_one_condition(
-    all_states: Set[State],
-    name_to_z3bool: Dict[str, z3.Bool],
-    solver: z3.Solver,
-):
-    solver.add(
-        *[
-            z3.PbEq([(name_to_z3bool[sample_to_name(s, a)], 1) for a in ACT_SET], 1)
-            for s in all_states
-        ]
-    )
-
-
-def print_exactly_one_condition(
-    all_states: Set[State],
-    name_to_z3bool: Dict[str, z3.Bool],
-):
-    for s in all_states:
-        debug(z3.PbEq([(name_to_z3bool[sample_to_name(s, a)], 1) for a in ACT_SET], 1))
-
-
-def add_dont_try_older_speculation_set_condition(
-    old_speculation_sets: List[Set[str]],
-    name_to_z3bool: Dict[str, z3.Bool],
-):
-    pass
-
-
 if __name__ == "__main__":
     args = get_arguments()
     verifier_rng = Random(args.verifier_seed)
@@ -171,28 +195,24 @@ if __name__ == "__main__":
     speculated_samples = dict()
 
     all_traces: List[Trace] = list()
-    old_speculation_sets: List[Set[str]] = list()
+    all_envs = set()
+    working_envs = set()
 
-    graph = TransitionGraph(env_name=args.env_name)
-    graph.add_traces(positive_demos)
+    old_speculation_sets: List[Set[str]] = list()
 
     epoch = 0
 
+    """ z3 related stuff """
     z3.set_option("smt.random_seed", args.z3_seed)
-    name_to_sample = dict()
     name_to_z3bool = dict()
     all_states = set()
+    solver = z3.Solver()
 
     for s in decided_samples:
-        if s not in all_states:
-            all_states.add(s)
-            for a in ACT_SET:
-                name = sample_to_name(s, a)
-                name_to_sample[name] = (s, a)
-                name_to_z3bool[name] = z3.Bool(name)
+        add_state(solver, name_to_z3bool, all_states, s)
+    add_decided_samples_condition(decided_samples, name_to_z3bool, solver)
 
     while True:
-        debug(f"Start of Epoch: {epoch}")
         policy, _ = train_policy(
             env_name=args.env_name,
             decided_samples=decided_samples,
@@ -200,57 +220,68 @@ if __name__ == "__main__":
             seed=args.learner_seed,
             save=False,
         )
-        sat, traces = verify_policy(
-            env_name=args.env_name,
-            policy=policy,
-            seed=verifier_rng.randrange(int(1e10)),
-            num_rruns=args.num_rruns,
-            max_steps=args.max_steps,
-            use_saved_envs=False,
-            show_window=args.show_window,
-        )
-        if sat:
+        if all_envs:
+            psat, sat_trace_pairs = simulate_policy_on_list_of_envs(
+                env_name=args.env_name,
+                env_list=[e for e in all_envs],
+                policy=policy,
+                max_steps=args.max_steps,
+            )
+            working_envs = set()
+            for e, (tsat, trace) in zip(all_envs, sat_trace_pairs):
+                all_traces.append(trace)
+                if tsat:
+                    add_successful_condition(trace, all_states, decided_samples, name_to_z3bool, solver)
+                else:
+                    working_envs.add(e)
+                    add_counterexample_condition(trace, all_states, decided_samples, name_to_z3bool, solver)
+        debug(f"{len(working_envs) = } {len(all_envs) = } {len(all_traces) = }")
+
+        if not working_envs:
+            if epoch > 0:
+                debug(f"End of CEGIS Epoch: {epoch}")
+                debug(f"Number of Demo States: {len(decided_samples)}")
+                num_new_states = len(all_states) - len(decided_samples)
+                debug(f"Number of New States Seen: {num_new_states}")
+                debug()
+            epoch += 1
+            debug(f"Start of CEGIS Epoch: {epoch}")
+            miniround = 0
             sat, traces = verify_policy(
                 env_name=args.env_name,
                 policy=policy,
                 seed=verifier_rng.randrange(int(1e10)),
-                num_rruns=300,
+                num_rruns=args.num_rruns,
                 max_steps=args.max_steps,
                 use_saved_envs=False,
                 show_window=args.show_window,
             )
             if sat:
-                break
+                sat, traces = verify_policy(
+                    env_name=args.env_name,
+                    policy=policy,
+                    seed=verifier_rng.randrange(int(1e10)),
+                    num_rruns=300,
+                    max_steps=args.max_steps,
+                    use_saved_envs=False,
+                    show_window=args.show_window,
+                )
+                if sat:
+                    break
 
-        """ Main Algorithm starts here """
-        all_traces.extend(traces)
-        print(len(traces))
-        graph.add_trace(traces[0])
-
-        for trace in traces:
-            for _, s, _, _, _ in trace:
-                if s not in all_states:
-                    all_states.add(s)
-                    for a in ACT_SET:
-                        name = sample_to_name(s, a)
-                        name_to_sample[name] = (s, a)
-                        name_to_z3bool[name] = z3.Bool(name)
-
-        solver = z3.Solver()
-        add_traces_condition(all_traces, decided_samples, name_to_z3bool, solver)
-        add_decided_condition(decided_samples, name_to_z3bool, solver)
-        add_exactly_one_condition(all_states, name_to_z3bool, solver)
+            all_traces.extend(traces)
+            for counterexample in traces:
+                all_envs.add(counterexample[0][0])
+                working_envs.add(counterexample[0][0])
+                add_counterexample_condition(
+                    counterexample, all_states, decided_samples, name_to_z3bool, solver
+                )
+            debug(f"{len(working_envs) = } {len(all_envs) = } {len(all_traces) = }")
 
         if solver.check() != z3.sat:
-            print_traces_condition(all_traces, decided_samples, name_to_z3bool)
-            print_decided_condition(decided_samples, name_to_z3bool)
-            print_exactly_one_condition(all_states, name_to_z3bool)
-
-            debug(f"Total Number of Demo States: {len(decided_samples)}")
-            debug(
-                f"Total Number of New States Seen: {len(all_states) - len(decided_samples)}"
-            )
-
+            debug(f"Number of Demo States: {len(decided_samples)}")
+            num_new_states = len(all_states) - len(decided_samples)
+            debug(f"Number of New States Seen: {num_new_states}")
             raise Exception("UNSAT: Could not come up with a Speculated Sample set")
 
         assignment = solver.model()
@@ -270,14 +301,8 @@ if __name__ == "__main__":
         # for s in speculated_samples:
         #     debug(state_to_string(s, args.env_name), speculated_samples[s])
         # debug()
-
-        debug(f"End of Epoch: {epoch}")
-        debug(
-            f"Total Number of New States Seen: {len(all_states) - len(decided_samples)}"
-        )
-        debug()
-        epoch += 1
-        graph.show_graph(name="bsp.html")
+        debug(f"Completed {miniround = }")
+        miniround += 1
 
     print(f"Epochs to Completion: {epoch}")
     print(f"Total Number of Demo States: {len(decided_samples)}")
