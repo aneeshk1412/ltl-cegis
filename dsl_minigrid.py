@@ -48,6 +48,18 @@ def bfs(env: MiniGridEnv, obj: str, color: str | None = None):
     return False, None
 
 
+def right_pos(env: MiniGridEnv):
+    agent_pos = env.agent_pos
+    dx, dy = env.dir_vec
+    return (agent_pos[0] - dy, agent_pos[1] + dx)
+
+
+def left_pos(env: MiniGridEnv):
+    agent_pos = env.agent_pos
+    dx, dy = env.dir_vec
+    return (agent_pos[0] + dy, agent_pos[1] - dx)
+
+
 ##
 #   DSL Terms and Functions
 ##
@@ -115,7 +127,9 @@ def common_features(env: MiniGridEnv, *args):
         is_agent_facing(env, get_nearest(env, *args)),
         is_at_agents_back(env, get_nearest(env, *args)),
         is_at_agents_left(env, get_nearest(env, *args)),
+        check(env, left_pos(env), *args),
         is_at_agents_right(env, get_nearest(env, *args)),
+        check(env, right_pos(env), *args),
         check(env, env.front_pos, *args),
     )
 
@@ -127,7 +141,9 @@ def common_headers(*args):
         f"is_agent_facing(get_nearest({val}))",
         f"is_at_agents_back(get_nearest({val}))",
         f"is_at_agents_left(get_nearest({val}))",
+        f"check(left_pos, {val})",
         f"is_at_agents_right(get_nearest({val}))",
+        f"check(right_pos, {val})",
         f"check(front_pos, {val})",
     )
 
@@ -137,6 +153,8 @@ def features_Empty(env: MiniGridEnv) -> State:
         is_agent_on(env, get_nearest(env, "goal")),
         check(env, env.front_pos, "empty"),
         check(env, env.front_pos, "wall"),
+        check(env, left_pos(env), "wall"),
+        check(env, right_pos(env), "wall"),
         *common_features(env, "goal"),
     )
     return features
@@ -147,6 +165,8 @@ def header_Empty() -> Tuple[str, ...]:
         'is_agent_on(get_nearest("goal"))',
         'check(front_pos, "empty")',
         'check(front_pos, "wall")',
+        'check(left_pos, "wall")',
+        'check(right_pos, "wall")',
         *common_headers("goal"),
     )
 
@@ -422,6 +442,8 @@ def features_MultiKey_1(env: MiniGridEnv) -> State:
         is_agent_on(env, get_nearest(env, "goal")),
         check(env, env.front_pos, "empty"),
         check(env, env.front_pos, "wall"),
+        check(env, left_pos(env), "wall"),
+        check(env, right_pos(env), "wall"),
         *common_features(env, "goal"),
         *common_features(env, "key", "red"),
     )
@@ -433,6 +455,8 @@ def header_MultiKey_1() -> Tuple[str, ...]:
         'is_agent_on(get_nearest("goal"))',
         'check(front_pos, "empty")',
         'check(front_pos, "wall")',
+        'check(left_pos, "wall")',
+        'check(right_pos, "wall")',
         *common_headers("goal"),
         *common_headers("key", "red"),
     )
@@ -453,6 +477,8 @@ def features_MultiKey_2(env: MiniGridEnv) -> State:
         is_agent_on(env, get_nearest(env, "goal")),
         check(env, env.front_pos, "empty"),
         check(env, env.front_pos, "wall"),
+        check(env, left_pos(env), "wall"),
+        check(env, right_pos(env), "wall"),
         *common_features(env, "goal"),
         *common_features(env, "key", "red"),
         *common_features(env, "key", "green"),
@@ -465,6 +491,8 @@ def header_MultiKey_2() -> Tuple[str, ...]:
         'is_agent_on(get_nearest("goal"))',
         'check(front_pos, "empty")',
         'check(front_pos, "wall")',
+        'check(left_pos, "wall")',
+        'check(right_pos, "wall")',
         *common_headers("goal"),
         *common_headers("key", "red"),
         *common_headers("key", "green"),
@@ -488,6 +516,8 @@ def features_MultiKey_3(env: MiniGridEnv) -> State:
         is_agent_on(env, get_nearest(env, "goal")),
         check(env, env.front_pos, "empty"),
         check(env, env.front_pos, "wall"),
+        check(env, left_pos(env), "wall"),
+        check(env, right_pos(env), "wall"),
         *common_features(env, "goal"),
         *common_features(env, "key", "red"),
         *common_features(env, "key", "green"),
@@ -501,6 +531,8 @@ def header_MultiKey_3() -> Tuple[str, ...]:
         'is_agent_on(get_nearest("goal"))',
         'check(front_pos, "empty")',
         'check(front_pos, "wall")',
+        'check(left_pos, "wall")',
+        'check(right_pos, "wall")',
         *common_headers("goal"),
         *common_headers("key", "red"),
         *common_headers("key", "green"),
@@ -527,6 +559,8 @@ def features_MultiKey_4(env: MiniGridEnv) -> State:
         is_agent_on(env, get_nearest(env, "goal")),
         check(env, env.front_pos, "empty"),
         check(env, env.front_pos, "wall"),
+        check(env, left_pos(env), "wall"),
+        check(env, right_pos(env), "wall"),
         *common_features(env, "goal"),
         *common_features(env, "key", "red"),
         *common_features(env, "key", "green"),
@@ -541,6 +575,8 @@ def header_MultiKey_4() -> Tuple[str, ...]:
         'is_agent_on(get_nearest("goal"))',
         'check(front_pos, "empty")',
         'check(front_pos, "wall")',
+        'check(left_pos, "wall")',
+        'check(right_pos, "wall")',
         *common_headers("goal"),
         *common_headers("key", "red"),
         *common_headers("key", "green"),
@@ -570,6 +606,8 @@ def features_MultiKey_5(env: MiniGridEnv) -> State:
         is_agent_on(env, get_nearest(env, "goal")),
         check(env, env.front_pos, "empty"),
         check(env, env.front_pos, "wall"),
+        check(env, left_pos(env), "wall"),
+        check(env, right_pos(env), "wall"),
         *common_features(env, "goal"),
         *common_features(env, "key", "red"),
         *common_features(env, "key", "green"),
@@ -585,6 +623,8 @@ def header_MultiKey_5() -> Tuple[str, ...]:
         'is_agent_on(get_nearest("goal"))',
         'check(front_pos, "empty")',
         'check(front_pos, "wall")',
+        'check(left_pos, "wall")',
+        'check(right_pos, "wall")',
         *common_headers("goal"),
         *common_headers("key", "red"),
         *common_headers("key", "green"),
@@ -688,3 +728,7 @@ progress_register = {
     "MiniGrid-MultiKey-K5-Ordered-16x16-v0": progress_MultiKey_5,
     # "MiniGrid-BlockedUnlockPickup-v0": progress_BlockedUnlockPickup,
 }
+
+if __name__ == "__main__":
+    for k, v in header_register.items():
+        print(k, len(v))
