@@ -79,15 +79,36 @@ def correct_single_trace_priority(
                     show_window=False,
                 )
                 add_trace_to_graph_and_all_states(trace, graph, all_states)
+                fin_sat, fin_trace = simulate_policy_on_env(
+                    env_name=env_name,
+                    env=env,
+                    policy=new_policy,
+                    show_window=args.show_window,
+                )
+                assert sim_sat == fin_sat
+                # fin_envs = reversed([str(e_i) for e_i, _, _, _, _ in fin_trace] + [str(fin_trace[-1][3])])
+                # sim_envs = reversed([str(e_i) for e_i, _, _, _, _ in sim_trace] + [str(sim_trace[-1][3])])
+                # if not all(s_e == f_e for s_e, f_e in zip(sim_envs, fin_envs)):
+                #     _, _ = simulate_policy_on_env(
+                #         env_name=env_name,
+                #         env=e,
+                #         policy=new_policy,
+                #         show_window=True,
+                #         block=True,
+                #         detect_collisions=False,
+                #     )
+                #     _, _ = simulate_policy_on_env(
+                #         env_name=env_name,
+                #         env=env,
+                #         policy=new_policy,
+                #         show_window=True,
+                #         block=True,
+                #         detect_collisions=False,
+                #     )
+                #     raise Exception("Weird Stuff Happening")
 
                 if sim_sat:
                     print(f"Traces seen before correcting this trace: {num_traces}")
-                    fin_sat, fin_trace = simulate_policy_on_env(
-                        env_name=env_name,
-                        env=env,
-                        policy=new_policy,
-                        show_window=args.show_window,
-                    )
                     assert fin_sat
                     add_trace_to_graph_and_all_states(fin_trace, graph, all_states)
                     for _, s, a, _, _ in fin_trace.get_abstract_trace():
@@ -166,6 +187,7 @@ if __name__ == "__main__":
                 break
 
         """ Main Algorithm starts here """
+        debug(f"Epoch: {epoch}")
 
         working_traces, other_traces = get_new_working_and_other_traces(
             working_traces, other_traces, policy, traces
@@ -182,18 +204,6 @@ if __name__ == "__main__":
         )
 
         if suggested_samples is None:
-            print("Could not come up a consistent suggestion")
-            suggested_samples = correct_single_trace_priority(
-                working_traces[0],
-                policy=policy,
-                decided_samples=decided_samples,
-                speculated_samples=dict(),
-                env_name=args.env_name,
-                graph=graph,
-                all_states=all_states,
-            )
-
-        if suggested_samples is None:
             _, _ = simulate_policy_on_env(
                 env_name=args.env_name,
                 env=working_traces[0][0][0],
@@ -205,7 +215,16 @@ if __name__ == "__main__":
             )
             debug(f"Demo States: {len(decided_samples)}")
             debug(f"New States Seen: {len(all_states) - len(decided_samples)}")
-            raise Exception("UNSAT: Could not come up with a Suggested Sample set")
+            debug("UNSAT: Could not come up with a Suggested Sample set")
+            suggested_samples = correct_single_trace_priority(
+                working_traces[0],
+                policy=policy,
+                decided_samples=decided_samples,
+                speculated_samples=dict(),
+                env_name=args.env_name,
+                graph=graph,
+                all_states=all_states,
+            )
 
         if check_conflicts(speculated_samples, suggested_samples, args.env_name):
             suggested_samples = resolve_conflicts(
