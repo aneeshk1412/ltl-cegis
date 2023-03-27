@@ -3,7 +3,7 @@
 from copy import deepcopy
 from typing import List, Tuple
 
-from custom_types import Transition
+from custom_types import Transition, Features, Action
 
 def remove_repeated_label_transitions(trace: List[Transition]) -> List[Transition]:
     new_trace = []
@@ -44,6 +44,7 @@ class Trace(object):
         self.label_stem = remove_repeated_label_transitions(self.stem)
         self.label_loop = remove_repeated_label_transitions(self.loop)
         self.label_trace = self.label_stem + self.label_loop
+        self.decisions = dict((b, a) for _, b, a, _, _ in self.label_trace)
 
     def __len__(self) -> int:
         return len(self.label_trace)
@@ -68,3 +69,6 @@ class Trace(object):
 
     def get_label_loop(self) -> List[Transition]:
         return self.label_loop
+
+    def get_decisions(self) -> dict[Features, Action]:
+        return self.decisions
