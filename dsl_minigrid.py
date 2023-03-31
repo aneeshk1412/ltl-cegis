@@ -49,6 +49,18 @@ def bfs(state: State, obj: str, color: str | None = None):
     return False, None
 
 
+def right_pos(state: State):
+    agent_pos = state.agent_pos
+    dx, dy = state.dir_vec
+    return (agent_pos[0] - dy, agent_pos[1] + dx)
+
+
+def left_pos(state: State):
+    agent_pos = state.agent_pos
+    dx, dy = state.dir_vec
+    return (agent_pos[0] + dy, agent_pos[1] - dx)
+
+
 """ Features """
 
 
@@ -103,17 +115,36 @@ def is_at_agents_right(state: State, pos: Tuple[int, ...]) -> bool:
     return cross(DIR_TO_VEC[state.agent_dir], sub(pos, state.agent_pos)) > 0
 
 
-''' Feature Functions '''
+""" Feature Functions """
 
-def common_features(state: State, *args) -> Features:
+
+def main_object_features(state: State, *args) -> Features:
     obj_name = "_".join(args)
     return {
         f"is_present__{obj_name}": is_present(state, *args),
+        f"is_agent_on__{obj_name}": is_agent_on(state, get_nearest(state, *args)),
         f"is_at_agents_front__{obj_name}": is_at_agents_front(state, get_nearest(state, *args)),
         f"is_at_agents_back__{obj_name}": is_at_agents_back(state, get_nearest(state, *args)),
         f"is_at_agents_left__{obj_name}": is_at_agents_left(state, get_nearest(state, *args)),
         f"is_at_agents_right__{obj_name}": is_at_agents_right(state, get_nearest(state, *args)),
         f"check_agent_front_pos__{obj_name}": check(state, state.front_pos, *args),
-        f"check_agent_left_pos__{obj_name}": False,
-        f"check_agent_right_pos__{obj_name}": False,
+        f"check_agent_left_pos__{obj_name}": check(state, left_pos(state), *args),
+        f"check_agent_right_pos__{obj_name}": check(state, right_pos(state), *args),
+    }
+
+
+def other_object_features(state: State, *args) -> Features:
+    obj_name = "_".join(args)
+    return {
+        f"check_agent_front_pos__{obj_name}": check(state, state.front_pos, *args),
+        f"check_agent_left_pos__{obj_name}": check(state, left_pos(state), *args),
+        f"check_agent_right_pos__{obj_name}": check(state, right_pos(state), *args),
+    }
+
+
+def features_empty(state: State) -> Features:
+    return {
+        **main_object_features(state, "goal"),
+        **other_object_features(state, "wall"),
+        f"check_agent_front_pos__empty": check(state, state.front_pos, "empty")
     }
