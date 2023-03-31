@@ -1,18 +1,15 @@
 #!/usr/bin/env python3
 
-from typing import List, Tuple
-
-from custom_types import Policy, State
-from trace import Trace
-
-
 def simulate_policy_on_state(
-    policy: Policy, state: State, task: str = "minigrid", args=None
+    state: State,
+    policy: Policy,
+    feature_func: Callable[[State], Features],
+    specification: Specification,
+    args=None,
 ) -> Tuple[bool, Trace]:
-    pass
+    trace = Trace()
+    seen_state_id_set = set()
+    s = deepcopy(state)
+    while True:
+        seen_state_id_set.add(s.id())
 
-
-def simulate_policy_on_list_of_states(
-    policy: Policy, state_list: List[State], task: str = "minigrid", args=None
-) -> List[Tuple[bool, Trace]]:
-    pass
