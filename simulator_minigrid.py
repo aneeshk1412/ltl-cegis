@@ -60,7 +60,7 @@ def simulate_policy_on_state(
         trace.append(transition)
         if done:
             break
-    ## Convert from IndexTransition to Transition
+    ## Convert from IndexTransition to Transition before sending
     trace = Trace(trace)
     sat = trace.satisfies(spec=spec, feature_fn=feature_fn)
     return sat, trace
