@@ -3,7 +3,7 @@
 from typing import Tuple
 from collections import deque
 
-from custom_types_minigrid import State, Features
+from commons_minigrid import State, Features
 
 from minigrid.core.constants import DIR_TO_VEC
 
