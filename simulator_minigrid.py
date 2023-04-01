@@ -3,13 +3,14 @@
 from copy import deepcopy
 from typing import Set, Tuple
 
-from custom_types_minigrid import (
+from commons_minigrid import (
     State,
     Policy,
     Feature_Func,
     Transition,
     Specification,
     Trace,
+    satisfies
 )
 
 from minigrid.core.constants import ACT_STR_TO_ENUM
@@ -62,7 +63,7 @@ def simulate_policy_on_state(
             break
     ## Convert from IndexTransition to Transition before sending
     trace = Trace(trace)
-    sat = trace.satisfies(spec=spec, feature_fn=feature_fn)
+    sat = satisfies(trace=trace, spec=spec, feature_fn=feature_fn)
     return sat, trace
 
 
@@ -70,7 +71,8 @@ if __name__ == "__main__":
     import argparse
     import gymnasium as gym
 
-    from custom_types_minigrid import Action
+    from commons_minigrid import Action
+    from dsl_minigrid import features_empty
 
     from minigrid.minigrid_env import MiniGridEnv
 
@@ -94,18 +96,15 @@ if __name__ == "__main__":
 
     state: MiniGridEnv = gym.make(args.env, tile_size=args.tile_size)
     state.reset()
-    policy = lambda feats: Action("forward")
+    # policy = lambda feats: Action("forward")
+    policy = lambda feats: Action("right") if feats["check_agent_front_pos__wall"] else Action("forward")
 
     sat, trace = simulate_policy_on_state(
         state=state,
         policy=policy,
-        feature_fn=lambda state: state,
-        spec="",
+        feature_fn=features_empty,
+        spec="P>=1 [F \"is_agent_on__goal\"]",
         seed=args.seed,
         max_steps=args.max_steps,
     )
-    for s, a, s_p in trace:
-        print(s)
-        print(a)
-    print(s_p)
-    # assert trace[0][0].identifier() == trace[-1][2].identifier()
+    print(f"{sat = }")
