@@ -31,7 +31,6 @@ def learn(
         max_features=None,
         max_leaf_nodes=None,
     )
-    print(keys_list)
     model.fit(keys_df, actions_df)
     agrees = sum(
         model.predict(pd.DataFrame([key]))[0] == action
