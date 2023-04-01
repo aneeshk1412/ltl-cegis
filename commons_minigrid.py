@@ -1,17 +1,30 @@
 #!/usr/bin/env python3
 
+import pickle
+import random
 import subprocess
 from copy import deepcopy
-from typing import Tuple, Callable, List
+from typing import Tuple, Callable, List, Set
 
 import networkx as nx
 from minigrid.minigrid_env import MiniGridEnv
+
+
+""" Simple Debugging """
+
+DEBUG = True
+
+
+def debug(*args, **kwargs):
+    if DEBUG or kwargs["debug"]:
+        print(*args, **kwargs)
 
 
 """ Types """
 
 State = MiniGridEnv
 Features = dict[str, bool]
+FeaturesKey = Tuple[bool, ...]
 Action = str
 Transition = Tuple[State, Action, State]
 ## Add Index and IndexTransition
@@ -19,6 +32,39 @@ Transition = Tuple[State, Action, State]
 Policy = Callable[[Features], Action]
 Feature_Func = Callable[[State], Features]
 Specification = str
+
+
+class Decisions(object):
+    def __init__(self) -> None:
+        self.key_to_actions: dict[FeaturesKey, Set[Action]] = {}
+        self.key_to_features: dict[FeaturesKey, Features] = {}
+
+    def add_decision(self, feats: Features, act: Action) -> None:
+        key = features_to_key(feats)
+        if key not in self.key_to_features:
+            self.key_to_features[key] = feats
+            self.key_to_actions[key] = {act}
+        else:
+            self.key_to_actions[key].add(act)
+
+    def add_decision_list(self, decision_list: List[Tuple[Features, Action]]) -> None:
+        for decision in decision_list:
+            self.add_decision(*decision)
+
+    def get_decisions(self) -> List[Tuple[Features, Action]]:
+        ## Conflicting decisions possible
+        ### delegates to learner to resolve conflict
+        return [
+            (key, act)
+            for key in self.key_to_features
+            for act in self.key_to_actions[key]
+        ]
+        ## Sampling a random decision
+        return [
+            (key, act)
+            for key in self.key_to_features
+            for act in random.sample(self.key_to_actions[key], 1)
+        ]
 
 
 class Trace(object):
@@ -181,3 +227,18 @@ def satisfies(trace: Trace, spec: Specification, feature_fn: Feature_Func) -> bo
         ["prism", "model.prism", "--pf", spec, "--exportresults", "stdout:comment"]
     )
     return get_spec_result(output=output)
+
+
+def demo_traces_to_pickle(demos: List[Trace], env_name: str) -> None:
+    with open("data/" + env_name + "-demos.pkl", "wb") as f:
+        pickle.dump(demos, f)
+
+
+def pickle_to_demo_traces(env_name: str) -> List[Trace]:
+    with open("data/" + env_name + "-demos.pkl", "rb") as f:
+        positive_demos = pickle.load(f)
+    return positive_demos
+
+
+def features_to_key(feats: Features) -> FeaturesKey:
+    return tuple(feats[k] for k in sorted(feats.keys()))
