@@ -23,21 +23,22 @@ def learn(
     save: bool = False,
 ) -> Tuple[Callable[[Features], str], DecisionTreeClassifier]:
     keys_list, actions_list = zip(*decisions.get_decisions())
-    keys_list = pd.DataFrame(keys_list)
-    actions_list = pd.DataFrame(actions_list)
+    keys_df = pd.DataFrame(keys_list)
+    actions_df = pd.DataFrame(actions_list)
     model = DecisionTreeClassifier(
         class_weight="balanced",
         random_state=seed,
         max_features=None,
         max_leaf_nodes=None,
     )
-    model.fit(keys_list, actions_list)
+    print(keys_list)
+    model.fit(keys_df, actions_df)
     agrees = sum(
         model.predict(pd.DataFrame([key]))[0] == action
         for key, action in zip(keys_list, actions_list)
     )
     debug(f"Percent Agreement: {agrees / len(actions_list)}")
-    policy = lambda feats: policy_decision_tree(feats, model)
+    policy = policy_decision_tree(model)
     if save:
         with open("model.pkl", "wb") as f:
             pickle.dump(model, f)
