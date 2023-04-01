@@ -77,6 +77,7 @@ class ManualControl:
         print("pressed", key)
 
         if key == "escape":
+            self.reset()
             self.window.close()
             return
         if key == "backspace":
