@@ -5,12 +5,11 @@ from __future__ import annotations
 import gymnasium as gym
 from copy import deepcopy
 
-from commons_minigrid import Trace, demo_traces_to_pickle
+from commons_minigrid import Trace, demo_traces_to_pickle, parse_args
 
 from minigrid.core.actions import Actions
 from minigrid.minigrid_env import MiniGridEnv
 from minigrid.utils.window import Window
-from minigrid.wrappers import ImgObsWrapper, RGBImgPartialObsWrapper
 
 
 class ManualControl:
@@ -110,38 +109,9 @@ class ManualControl:
 
 
 if __name__ == "__main__":
-    import argparse
-
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--env", help="gym environment to load", default="MiniGrid-MultiRoom-N6-v0"
-    )
-    parser.add_argument(
-        "--seed",
-        type=int,
-        help="random seed to generate the environment with",
-        default=None,
-    )
-    parser.add_argument(
-        "--tile-size", type=int, help="size at which to render tiles", default=32
-    )
-    parser.add_argument(
-        "--agent-view",
-        default=False,
-        help="draw the agent sees (partially observable view)",
-        action="store_true",
-    )
-
-    args = parser.parse_args()
-
-    env: MiniGridEnv = gym.make(args.env, tile_size=args.tile_size)
-
-    if args.agent_view:
-        print("Using agent view")
-        env = RGBImgPartialObsWrapper(env, env.tile_size)
-        env = ImgObsWrapper(env)
-
+    args = parse_args()
+    env: MiniGridEnv = gym.make(args.env_name, tile_size=args.tile_size)
     manual_control = ManualControl(
-        args.env, env, agent_view=args.agent_view, seed=args.seed
+        args.env_name, env, agent_view=False, seed=args.demo_seed
     )
     manual_control.start()
