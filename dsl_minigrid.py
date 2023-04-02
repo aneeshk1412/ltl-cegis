@@ -148,3 +148,10 @@ def features_empty(state: State) -> Features:
         **other_object_features(state, "wall"),
         f"check_agent_front_pos__empty": check(state, state.front_pos, "empty")
     }
+
+
+""" Env Name to Feature Function Mapping """
+
+feature_mapping = {
+    "MiniGrid-Empty-Random-6x6-v0": features_empty,
+}
