@@ -4,6 +4,7 @@ import pickle
 import random
 import subprocess
 from copy import deepcopy
+from dataclasses import dataclass
 from typing import Tuple, Callable, List, Set
 
 import networkx as nx
@@ -18,6 +19,62 @@ DEBUG = True
 def debug(*args, **kwargs):
     if DEBUG or kwargs["debug"]:
         print(*args, **kwargs)
+
+
+@dataclass
+class Arguments:
+    env_name: str
+    spec: str
+    simulator_seed: int | None = None
+    demo_seed: int | None = None
+    max_steps: int = 100
+    tile_size: int = 32
+    threshold: int = 200
+
+
+def parse_args() -> Arguments:
+    import argparse
+
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument(
+        "--env", help="gym environment to load", default="MiniGrid-Empty-Random-6x6-v0"
+    )
+    parser.add_argument(
+        "--simulator-seed",
+        type=int,
+        help="seed for the simulator",
+        default=None,
+    )
+    parser.add_argument(
+        "--demo-seed",
+        type=int,
+        help="seed for the demo generator",
+        default=None,
+    )
+    parser.add_argument(
+        "--max-steps", type=int, help="number of steps to timeout after", default=100
+    )
+    parser.add_argument(
+        "--threshold",
+        type=int,
+        help="number of trials after which to declare safe",
+        default=200,
+    )
+    parser.add_argument(
+        "--tile-size", type=int, help="size at which to render tiles", default=32
+    )
+    parser.add_argument("--spec", type=str, help="specification to check", default="P>=1 [F \"is_agent_on__goal\"]")
+    parsed_args = parser.parse_args()
+
+    args = Arguments(
+        env_name=parsed_args.env,
+        spec=parsed_args.spec,
+        simulator_seed=parsed_args.simulator_seed,
+        max_steps=parsed_args.max_steps,
+        tile_size=parsed_args.tile_size,
+    )
+    return args
 
 
 """ Types """
