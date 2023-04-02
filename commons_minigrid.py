@@ -64,7 +64,12 @@ def parse_args() -> Arguments:
     parser.add_argument(
         "--tile-size", type=int, help="size at which to render tiles", default=32
     )
-    parser.add_argument("--spec", type=str, help="specification to check", default="P>=1 [F \"is_agent_on__goal\"]")
+    parser.add_argument(
+        "--spec",
+        type=str,
+        help="specification to check",
+        default='P>=1 [F "is_agent_on__goal"]',
+    )
     parsed_args = parser.parse_args()
 
     args = Arguments(
