@@ -10,7 +10,8 @@ from commons_minigrid import (
     Transition,
     Specification,
     Trace,
-    satisfies
+    satisfies,
+    Arguments,
 )
 
 from minigrid.core.constants import ACT_STR_TO_ENUM
@@ -43,13 +44,12 @@ def simulate_policy_on_state(
     policy: Policy,
     feature_fn: Feature_Func,
     spec: Specification,
-    seed: int | None = None,
-    max_steps: int = 100,
+    args: Arguments,
 ):
     trace = list()
     prev_env_id_set = set()
     env = deepcopy(state)
-    env.reset(soft=True, seed=seed, max_steps=max_steps)
+    env.reset(soft=True, seed=args.simulator_seed, max_steps=args.max_steps)
     while True:
         prev_env_id_set.add(env.identifier())
         done, transition = step(
@@ -68,43 +68,30 @@ def simulate_policy_on_state(
 
 
 if __name__ == "__main__":
-    import argparse
     import gymnasium as gym
 
-    from commons_minigrid import Action
-    from dsl_minigrid import features_empty
+    from commons_minigrid import Action, parse_args
+    from dsl_minigrid import feature_mapping
 
     from minigrid.minigrid_env import MiniGridEnv
 
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--env", help="gym environment to load", default="MiniGrid-MultiRoom-N6-v0"
-    )
-    parser.add_argument(
-        "--seed",
-        type=int,
-        help="random seed to generate the environment with",
-        default=None,
-    )
-    parser.add_argument(
-        "--max-steps", type=int, help="number of steps to timeout after", default=100
-    )
-    parser.add_argument(
-        "--tile-size", type=int, help="size at which to render tiles", default=32
-    )
-    args = parser.parse_args()
+    args = parse_args()
 
-    state: MiniGridEnv = gym.make(args.env, tile_size=args.tile_size)
-    state.reset()
     # policy = lambda feats: Action("forward")
-    policy = lambda feats: Action("right") if feats["check_agent_front_pos__wall"] else Action("forward")
+    policy = (
+        lambda feats: Action("right")
+        if feats["check_agent_front_pos__wall"]
+        else Action("forward")
+    )
+
+    state: MiniGridEnv = gym.make(args.env_name, tile_size=args.tile_size)
+    state.reset()
 
     sat, trace = simulate_policy_on_state(
         state=state,
         policy=policy,
-        feature_fn=features_empty,
-        spec="P>=1 [F \"is_agent_on__goal\"]",
-        seed=args.seed,
-        max_steps=args.max_steps,
+        feature_fn=feature_mapping[args.env_name],
+        spec=args.spec,
+        args=args,
     )
     print(f"{sat = }")
