@@ -47,6 +47,6 @@ if __name__ == "__main__":
             print(f"CEGIS Epoch: {cegis_epochs}, Counterexample found after : {count} runs")
             cegis_epochs += 1
             count = 0
-            # decisions = partialMDP.get_decisions(spec=args.spec, feature_fn=feature_mapping[args.env_name])
+            decisions = partialMDP.get_decisions(spec=args.spec, feature_fn=feature_mapping[args.env_name])
             policy, model = learn(decisions)
-            # Assert success on all known environments
+            # Assert success on all known environments?

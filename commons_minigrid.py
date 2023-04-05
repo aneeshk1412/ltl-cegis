@@ -1,15 +1,17 @@
 #!/usr/bin/env python3
 
+import re
 import pickle
 import random
 import subprocess
 from copy import deepcopy
 from dataclasses import dataclass
+import matplotlib.pyplot as plt
 from typing import Tuple, Callable, List, Set
 
 import networkx as nx
 from minigrid.minigrid_env import MiniGridEnv
-
+from minigrid.core.constants import ACT_SET
 
 """ Simple Debugging """
 
@@ -68,7 +70,7 @@ def parse_args() -> Arguments:
         "--spec",
         type=str,
         help="specification to check",
-        default='P>=1 [F "is_agent_on__goal"]',
+        default='F "is_agent_on__goal"',
     )
     parsed_args = parser.parse_args()
 
@@ -154,9 +156,10 @@ class Trace(object):
 
 class PartialMDP(object):
     def __init__(self) -> None:
-        self.ids_to_idxs: dict[int, int] = {-1: 0}
-        self.idxs_to_ids: dict[int, int] = {0: -1}
-        self.idxs_to_states: dict[int, State] = {0: "dummy"}
+        self.ids_to_idxs: dict[int, int] = {}
+        self.idxs_to_ids: dict[int, int] = {}
+        self.idxs_to_states: dict[int, State] = {}
+        self.idxs_to_unused_acts: dict[int, Set[Action]] = {}
         self.graph = nx.DiGraph()
 
     def contains(self, state_id: int) -> bool:
@@ -181,6 +184,11 @@ class PartialMDP(object):
                 for s, a, s_p in trace
             ]
         )
+        for s, a, _ in trace:
+            idx = self.get_index_of(s)
+            if idx not in self.idxs_to_unused_acts:
+                self.idxs_to_unused_acts[idx] = deepcopy(ACT_SET)
+            self.idxs_to_unused_acts[idx] -= {a}
 
     def get_mdp_line(self) -> List[str]:
         return ["mdp", ""]
@@ -192,6 +200,31 @@ class PartialMDP(object):
             + self.get_transition_lines()
             + ["endmodule", ""]
         )
+
+    def get_module_with_dummy_lines(self) -> List[str]:
+        return (
+            ["module System", ""]
+            + self.get_state_with_dummy_lines()
+            + self.get_transition_lines()
+            + self.get_dummy_lines()
+            + ["endmodule", ""]
+        )
+
+    def get_dummy_lines(self) -> List[str]:
+        idx_counter = max(self.idxs_to_ids.keys()) + 1
+        transitions = []
+        for u, acts in self.idxs_to_unused_acts.items():
+            for a in acts:
+                transitions.append(f"[{a}] (state={u}) -> (state'={idx_counter}) ;")
+                idx_counter += 1
+        return transitions
+
+    def get_state_with_dummy_lines(self) -> List[str]:
+        min_idx = min(self.idxs_to_ids.keys())
+        max_idx = max(self.idxs_to_ids.keys()) + sum(
+            len(v) for v in self.idxs_to_unused_acts.values()
+        )
+        return ["// World State", f"state: [{min_idx}..{max_idx}] ;", ""]
 
     def get_state_lines(self) -> List[str]:
         min_idx = min(self.idxs_to_ids.keys())
@@ -207,9 +240,9 @@ class PartialMDP(object):
 
     def get_init_state_line(self, init_states: List[State] | None = None):
         if init_states is None or len(init_states) == 0:
-            ## All states are init (except dummy)
+            ## All states are init (except dummy states)
             init_states_cond = " | ".join(
-                f"(state={idx})" for idx in self.idxs_to_states if idx != 0
+                f"(state={idx})" for idx in self.idxs_to_states
             )
         else:
             init_states_cond = " | ".join(
@@ -218,10 +251,8 @@ class PartialMDP(object):
         return [f"init {init_states_cond} endinit"]
 
     def get_label_lines(self, feature_fn: Feature_Func):
-        labels = {k: set() for k in feature_fn(self.idxs_to_states[1])}
+        labels = {k: set() for k in feature_fn(self.idxs_to_states[0])}
         for s_idx in self.idxs_to_states:
-            if self.idxs_to_states[s_idx] == "dummy":
-                continue
             for k, v in feature_fn(self.idxs_to_states[s_idx]).items():
                 if v:
                     labels[k].add(s_idx)
@@ -234,6 +265,9 @@ class PartialMDP(object):
             lines.append(feat)
         return lines + [""]
 
+    def get_dummy_label_line(self):
+        return [f'label "dummy" = state>{max(self.idxs_to_ids.keys())} ;', ""]
+
     def get_partial_mdp_lines(self, feature_fn: Feature_Func) -> List[str]:
         lines = (
             self.get_mdp_line()
@@ -243,8 +277,49 @@ class PartialMDP(object):
         )
         return [l + "\n" for l in lines]
 
-    def get_mdp_with_dummy_lines(self) -> List[str]:
-        return []
+    def get_mdp_with_dummy_lines(self, feature_fn: Feature_Func) -> List[str]:
+        lines = (
+            self.get_mdp_line()
+            + self.get_module_with_dummy_lines()
+            + self.get_init_state_line()
+            + self.get_label_lines(feature_fn=feature_fn)
+            + self.get_dummy_label_line()
+        )
+        return [l + "\n" for l in lines]
+
+    def get_decisions(self, spec: Specification, feature_fn: Feature_Func) -> Decisions:
+        lines = self.get_mdp_with_dummy_lines(feature_fn=feature_fn)
+        with open("partmodel.prism", "w") as f:
+            f.writelines(lines)
+        output = run_bash_command(
+            [
+                "prism",
+                "partmodel.prism",
+                "--pf",
+                f'Pmax=? [ ({spec}) | (F "dummy") ]',
+                "--exportresults",
+                "stdout:comment",
+                "--exportadvmdp",
+                "adv.txt",
+                "--exportstates",
+                "states.txt",
+                "--exporttrans",
+                "trans.txt",
+            ]
+        )
+        nx.draw(self.graph, with_labels=True)
+        plt.savefig("graph.png")
+        # debug(output)
+        ## Check error in output here
+
+        pmcid_idx_map = parse_state_file("states.txt")
+        pmcid_action_map = parse_adv_file("adv.txt")
+
+        decisions = Decisions()
+        for pmcid, act in pmcid_action_map.items():
+            idx = pmcid_idx_map[pmcid]
+            decisions.add_decision(feature_fn(self.idxs_to_states[idx]), act)
+        return decisions
 
 
 """ Functions """
@@ -286,7 +361,14 @@ def satisfies(trace: Trace, spec: Specification, feature_fn: Feature_Func) -> bo
     with open("model.prism", "w") as f:
         f.writelines(lines)
     output = run_bash_command(
-        ["prism", "model.prism", "--pf", spec, "--exportresults", "stdout:comment"]
+        [
+            "prism",
+            "model.prism",
+            "--pf",
+            f"P>=1 [ {spec} ]",
+            "--exportresults",
+            "stdout:comment",
+        ]
     )
     return get_spec_result(output=output)
 
@@ -304,3 +386,31 @@ def pickle_to_demo_traces(env_name: str) -> List[Trace]:
 
 def features_to_key(feats: Features) -> FeaturesKey:
     return tuple(feats[k] for k in sorted(feats.keys()))
+
+
+state_exp = re.compile(r"(?P<pmcid>[-+]?\d+)\:\((?P<idx>[-+]?\d+)\)")
+
+
+def parse_state_file(state_file: str) -> dict[int, int]:
+    pmcid_idx_map = {}
+    with open(state_file, "r") as f:
+        _ = f.readline()
+        for line in f:
+            d = state_exp.match(line)
+            pmcid_idx_map[int(d["pmcid"])] = int(d["idx"])
+    return pmcid_idx_map
+
+
+transition_exp = re.compile(
+    r"(?P<upmcid>[-+]?\d+) (?P<choice>[-+]?\d+) (?P<vpmcid>[-+]?\d+) (?P<prob>[-+]?\d+) (?P<act>\S+)"
+)
+
+
+def parse_adv_file(adv_file: str) -> dict[int, Action]:
+    pmcid_action_map = {}
+    with open(adv_file, "r") as f:
+        _ = f.readline()
+        for line in f:
+            d = transition_exp.match(line)
+            pmcid_action_map[int(d["upmcid"])] = Action(d["act"])
+    return pmcid_action_map
