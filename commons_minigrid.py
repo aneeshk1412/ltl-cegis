@@ -17,6 +17,7 @@ from minigrid.minigrid_env import MiniGridEnv
 
 """ Data Types """
 
+
 @dataclass
 class Arguments:
     env_name: str
@@ -40,9 +41,7 @@ FeaturesKey = Tuple[bool, ...]
 class Features(dict):
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
-        self.key: FeaturesKey = tuple(
-            self[k] for k in sorted(self.keys())
-        )
+        self.key: FeaturesKey = tuple(self[k] for k in sorted(self.keys()))
 
     def __hash__(self) -> int:
         return hash(self.key)
@@ -112,174 +111,149 @@ class Trace(object):
         return self.loop
 
 
-class PartialMDP(object):
+class AbstractGraph(object):
     def __init__(self) -> None:
-        self.ids_to_idxs: dict[int, int] = {}
-        self.idxs_to_ids: dict[int, int] = {}
-        self.idxs_to_states: dict[int, State] = {}
-        self.idxs_to_unused_acts: dict[int, Set[Action]] = {}
-        self.graph = nx.MultiDiGraph()
+        self.features_to_feat_uid: dict[Features, int] = {}
+        self.feat_uid_to_features: dict[int, Features] = {}
+        self.feature_graph = nx.MultiDiGraph()
+        self.feat_uid_to_unused_acts: dict[int, Set[Action]] = {}
 
-    def contains(self, state_id: int) -> bool:
-        return state_id in self.ids_to_idxs
-
-    def get_index_of(self, state: State, add=True) -> int:
-        state_id = state.identifier()
-        if self.contains(state_id):
-            return self.ids_to_idxs[state_id]
+    def get_index(self, feats: Features, add: bool=True) -> int:
+        if feats in self.features_to_feat_uid:
+            return self.features_to_feat_uid[feats]
         if add:
-            new_idx = len(self.ids_to_idxs)
-            self.ids_to_idxs[state_id] = new_idx
-            self.idxs_to_ids[new_idx] = state_id
-            self.idxs_to_states[new_idx] = deepcopy(state)
-            return new_idx
+            new_feat_uid = len(self.features_to_feat_uid)
+
+            self.features_to_feat_uid[feats] = new_feat_uid
+            self.feat_uid_to_features[new_feat_uid] = feats
+            self.feature_graph.add_node(
+                new_feat_uid, label=f"{new_feat_uid}"
+            )  ## Add title with features
+            return new_feat_uid
         return -1
 
-    def add_trace(self, trace: Trace) -> None:
-        self.graph.add_edges_from(
-            [
-                (self.get_index_of(s), self.get_index_of(s_p), {"act": a, "label": a})
-                for s, a, s_p in trace
-            ]
-        )
-        for s, a, _ in trace:
-            idx = self.get_index_of(s)
-            if idx not in self.idxs_to_unused_acts:
-                self.idxs_to_unused_acts[idx] = deepcopy(ACT_SET)
-            self.idxs_to_unused_acts[idx] -= {a}
+    def add_edge(self, u: Features, v: Features, a: Action) -> None:
+        u_feat_uid = self.get_index(u)
+        v_feat_uid = self.get_index(v)
+        self.feature_graph.add_edge(u_feat_uid, v_feat_uid, key=a, label=a)
+        if u_feat_uid not in self.feat_uid_to_unused_acts:
+            self.feat_uid_to_unused_acts[u_feat_uid] = deepcopy(ACT_SET)
+        self.feat_uid_to_unused_acts[u_feat_uid] -= {a}
+        self.remove_self_loop_on(u, a)
 
-    def get_mdp_line(self) -> List[str]:
-        return ["mdp", ""]
+    def remove_self_loop_on(self, u: Features, a: Action) -> None:
+        u_p = self.get_index(u, add=False)
+        remove = False
+        for v_p in self.feature_graph[u_p]:
+            if v_p != u_p and any(a == a_p for a_p in self.feature_graph[u_p][v_p]):
+                remove = True
+                break
+        if remove and self.feature_graph.has_edge(u_p, u_p, key=a):
+            self.feature_graph.remove_edge(u_p, u_p, key=a)
 
-    def get_module_lines(self) -> List[str]:
-        return (
-            ["module System", ""]
-            + self.get_state_lines()
-            + self.get_transition_lines()
-            + ["endmodule", ""]
-        )
-
-    def get_module_with_dummy_lines(self) -> List[str]:
-        return (
-            ["module System", ""]
-            + self.get_state_with_dummy_lines()
-            + self.get_transition_lines()
-            + self.get_dummy_lines()
-            + ["endmodule", ""]
-        )
-
-    def get_dummy_lines(self) -> List[str]:
-        idx_counter = max(self.idxs_to_ids.keys()) + 1
-        transitions = []
-        for u, acts in self.idxs_to_unused_acts.items():
-            for a in acts:
-                transitions.append(f"[{a}] (state={u}) -> (state'={idx_counter}) ;")
-                idx_counter += 1
+    def get_transitions(self, with_dummy=True) -> List[Tuple[int, int, str]]:
+        transitions = [(u, v, a) for u, v, a in self.feature_graph.edges(keys=True)]
+        if with_dummy:
+            idx_counter = max(self.feat_uid_to_features.keys()) + 1
+            for u, acts in self.feat_uid_to_unused_acts.items():
+                for a in acts:
+                    transitions.append((u, idx_counter, a))
+                    idx_counter += 1
         return transitions
 
-    def get_state_with_dummy_lines(self) -> List[str]:
-        min_idx = min(self.idxs_to_ids.keys())
-        max_idx = max(self.idxs_to_ids.keys()) + sum(
-            len(v) for v in self.idxs_to_unused_acts.values()
-        )
-        return ["// World State", f"state: [{min_idx}..{max_idx}] ;", ""]
+    def get_state_limits(self, with_dummy=True) -> Tuple[int, int]:
+        min_idx = min(self.feat_uid_to_features.keys())
+        max_idx = max(self.feat_uid_to_features.keys())
+        if with_dummy:
+            max_idx += sum(len(acts) for acts in self.feat_uid_to_unused_acts.values())
+        return (min_idx, max_idx)
 
-    def get_state_lines(self) -> List[str]:
-        min_idx = min(self.idxs_to_ids.keys())
-        max_idx = max(self.idxs_to_ids.keys())
-        return ["// World State", f"state: [{min_idx}..{max_idx}] ;", ""]
+    def get_labels(self) -> dict[str, Set[int]]:
+        labels = {k: set() for k in self.feat_uid_to_features[0]}
+        for uid, feats in self.feat_uid_to_features.items():
+            for k in labels:
+                if feats[k]:
+                    labels[k].add(uid)
+        return labels
 
-    def get_transition_lines(self):
-        transitions = [
-            f"[{a}] (state={u}) -> (state'={v}) ;"
-            for u, v, a in self.graph.edges(data="act")
-        ]
-        return ["// Transitions"] + transitions + [""]
 
-    def get_init_state_line(self, init_states: List[State] | None = None):
-        if init_states is None or len(init_states) == 0:
-            ## All states are init (except dummy states)
-            init_states_cond = " | ".join(
-                f"(state={idx})" for idx in self.idxs_to_states
-            )
-        else:
-            init_states_cond = " | ".join(
-                f"(state={self.ids_to_idxs[s.identifier()]})" for s in init_states
-            )
-        return [f"init {init_states_cond} endinit"]
+class PartialGraph(object):
+    def __init__(self, feature_fn=None) -> None:
+        self.state_id_to_state: dict[int, State] = {}
+        self.state_id_to_state_uid: dict[int, int] = {}
+        self.state_uid_to_state_id: dict[int, int] = {}
+        self.state_graph = nx.MultiDiGraph()
+        self.state_uid_to_unused_acts: dict[int, Set[Action]] = {}
 
-    def get_label_lines(self, feature_fn: Feature_Func):
-        labels = {k: set() for k in feature_fn(self.idxs_to_states[0])}
-        for s_idx in self.idxs_to_states:
-            for k, v in feature_fn(self.idxs_to_states[s_idx]).items():
-                if v:
-                    labels[k].add(s_idx)
-        lines = []
-        for l in labels:
-            sat_states = " | ".join(f"(state={s})" for s in labels[l])
-            if sat_states == "":
-                sat_states = "false"
-            feat = f'label "{l}" = ' + sat_states + ";"
-            lines.append(feat)
-        return lines + [""]
+        self.feature_fn = feature_fn
+        self.features_to_state_ids: dict[Features, Set[int]] = {}
 
-    def get_dummy_label_line(self):
-        return [f'label "dummy" = state>{max(self.idxs_to_ids.keys())} ;', ""]
+        self.abstract_graph = AbstractGraph()
 
-    def get_partial_mdp_lines(self, feature_fn: Feature_Func) -> List[str]:
-        lines = (
-            self.get_mdp_line()
-            + self.get_module_lines()
-            + self.get_init_state_line()
-            + self.get_label_lines(feature_fn=feature_fn)
-        )
-        return [l + "\n" for l in lines]
+    def get_index(self, state: State, add: bool=True) -> int:
+        state_id = state.identifier()
+        if state_id in self.state_id_to_state_uid:
+            return self.state_id_to_state_uid[state_id]
+        if add:
+            new_state_uid = len(self.state_id_to_state_uid)
 
-    def get_mdp_with_dummy_lines(self, feature_fn: Feature_Func) -> List[str]:
-        lines = (
-            self.get_mdp_line()
-            + self.get_module_with_dummy_lines()
-            + self.get_init_state_line()
-            + self.get_label_lines(feature_fn=feature_fn)
-            + self.get_dummy_label_line()
-        )
-        return [l + "\n" for l in lines]
+            self.state_id_to_state[state_id] = deepcopy(state)
+            self.state_id_to_state_uid[state_id] = new_state_uid
+            self.state_uid_to_state_id[new_state_uid] = state_id
+            self.state_graph.add_node(
+                new_state_uid, label=f"{new_state_uid}"
+            )  ## title with features
 
-    def get_decisions(self, spec: Specification, feature_fn: Feature_Func) -> Decisions:
-        lines = self.get_mdp_with_dummy_lines(feature_fn=feature_fn)
-        with open("partmodel.prism", "w") as f:
-            f.writelines(lines)
-        output = run_bash_command(
-            [
-                "prism",
-                "partmodel.prism",
-                "--pf",
-                f'Pmax=? [ ({spec}) | (F "dummy") ]',
-                "--exportresults",
-                "stdout:comment",
-                "--exportadvmdp",
-                "adv.txt",
-                "--exportstates",
-                "states.txt",
-                "--exporttrans",
-                "trans.txt",
-            ]
-        )
-        nt = Network("500px", "500px", directed=True)
-        nt.from_nx(self.graph)
-        nt.show_buttons(filter_=['physics'])
-        nt.show("graph.html")
-        # debug(output)
-        ## Check error in output here
+            feats = self.feature_fn(state)
+            if feats not in self.features_to_state_ids:
+                self.features_to_state_ids[feats] = set()
+            self.features_to_state_ids[feats].add(state_id)
 
-        pmcid_idx_map = parse_state_file("states.txt")
-        pmcid_action_map = parse_adv_file("adv.txt")
+            _ = self.abstract_graph.get_index(feats)
+            return new_state_uid
+        return -1
 
-        decisions = Decisions()
-        for pmcid, act in pmcid_action_map.items():
-            idx = pmcid_idx_map[pmcid]
-            decisions.add_decision(feature_fn(self.idxs_to_states[idx]), act)
-        return decisions
+    def add_edge(self, u: State, v: State, a: Action) -> None:
+        u_state_uid = self.get_index(u)
+        v_state_uid = self.get_index(v)
+
+        self.state_graph.add_edge(u_state_uid, v_state_uid, label=a, key=a)
+        if u_state_uid not in self.state_uid_to_unused_acts:
+            self.state_uid_to_unused_acts[u_state_uid] = deepcopy(ACT_SET)
+        self.state_uid_to_unused_acts[u_state_uid] -= {a}
+
+        self.abstract_graph.add_edge(self.feature_fn(u), self.feature_fn(v), a)
+
+    def add_trace(self, trace: Trace) -> None:
+        for u, a, v in trace:
+            self.add_edge(u, v, a)
+
+    def get_transitions(self, with_dummy=True) -> List[Tuple[int, int, str]]:
+        transitions = [(u, v, a) for u, v, a in self.state_graph.edges(keys=True)]
+        if with_dummy:
+            idx_counter = max(self.state_uid_to_state_id.keys()) + 1
+            for u, acts in self.state_uid_to_unused_acts.items():
+                for a in acts:
+                    transitions.append((u, idx_counter, a))
+                    idx_counter += 1
+        return transitions
+
+    def get_state_limits(self, with_dummy=True) -> Tuple[int, int]:
+        min_idx = min(self.state_uid_to_state_id.keys())
+        max_idx = max(self.state_uid_to_state_id.keys())
+        if with_dummy:
+            max_idx += sum(len(acts) for acts in self.state_uid_to_unused_acts.values())
+        return (min_idx, max_idx)
+
+    def get_labels(self) -> dict[str, Set[int]]:
+        f_ex = self.feature_fn(self.state_id_to_state[self.state_uid_to_state_id[0]])
+        labels = {k: set() for k in f_ex}
+        for feats in self.features_to_state_ids:
+            for k in labels:
+                if feats[k]:
+                    for state_id in self.features_to_state_ids[feats]:
+                        labels[k].add(self.state_id_to_state_uid[state_id])
+        return labels
 
 
 """ Functions """
@@ -349,14 +323,14 @@ def parse_args() -> Arguments:
 
 
 def run_bash_command(bash_command: List[str]) -> str:
-    """ Runs a bash command given as a list of strings"""
+    """Runs a bash command given as a list of strings"""
     process = subprocess.Popen(bash_command, stdout=subprocess.PIPE)
     output = process.communicate()[0]
     return output.decode("utf-8")
 
 
 def get_specification_result(output: str) -> bool:
-    """ Check if the PRISM output for a given specification check returned True """
+    """Check if the PRISM output for a given specification check returned True"""
     result_str = "// RESULT: "
     index = output.find(result_str)
     if index == -1:
@@ -368,7 +342,7 @@ def get_specification_result(output: str) -> bool:
 def get_stem_and_loop(
     trace: List[Transition],
 ) -> Tuple[List[Transition], List[Transition] | None]:
-    """ Get stem and loop for a given trace """
+    """Get stem and loop for a given trace"""
     state_ids = [s.identifier() for s, _, _ in trace] + [trace[-1][2].identifier()]
     for i, x in enumerate(state_ids):
         try:
@@ -381,13 +355,13 @@ def get_stem_and_loop(
 
 
 def demo_traces_to_pickle(demos: List[Trace], env_name: str) -> None:
-    """ Save the list of Demo traces to a pickle file """
+    """Save the list of Demo traces to a pickle file"""
     with open("data/" + env_name + "-demos.pkl", "wb") as f:
         pickle.dump(demos, f)
 
 
 def pickle_to_demo_traces(env_name: str) -> List[Trace]:
-    """ Load a list of Demo traces from a pickle file """
+    """Load a list of Demo traces from a pickle file"""
     with open("data/" + env_name + "-demos.pkl", "rb") as f:
         positive_demos = pickle.load(f)
     return positive_demos
@@ -397,7 +371,7 @@ state_exp = re.compile(r"(?P<pmcid>[-+]?\d+)\:\((?P<idx>[-+]?\d+)\)")
 
 
 def parse_state_file(state_file: str) -> dict[int, int]:
-    """ Parse state file """
+    """Parse state file"""
     pmcid_idx_map = {}
     with open(state_file, "r") as f:
         _ = f.readline()
@@ -413,7 +387,7 @@ transition_exp = re.compile(
 
 
 def parse_adv_file(adv_file: str) -> dict[int, Action]:
-    """ Parse adversary file """
+    """Parse adversary file"""
     pmcid_action_map = {}
     with open(adv_file, "r") as f:
         _ = f.readline()
@@ -423,10 +397,51 @@ def parse_adv_file(adv_file: str) -> dict[int, Action]:
     return pmcid_action_map
 
 
+def get_system(mdp: AbstractGraph | PartialGraph, with_dummy=True, only_start_init=False) -> List[str]:
+    state_min, dummy_max = mdp.get_state_limits(with_dummy=with_dummy)
+    if dummy_max == state_min:
+        dummy_max += 1
+    state_lines = ["// World State", f"state: [{state_min}..{dummy_max}];", ""]
+
+    transitions_lines = [
+        f"[{a}] (state={u}) -> (state'={v}) ;"
+        for u, v, a in mdp.get_transitions(with_dummy=with_dummy)
+    ] + [""]
+
+    if only_start_init:
+        init_lines = [f"init state={state_min} endinit", ""]
+    else:
+        _, state_max = mdp.get_state_limits(with_dummy=False)
+        init_lines = [f"init state<={state_max} endinit", ""]
+
+    labels = mdp.get_labels()
+    label_lines = []
+    for l in labels:
+        sat_states = " | ".join(f"(state={s})" for s in labels[l])
+        if sat_states == "":
+            sat_states = "false"
+        feat = f'label "{l}" = ' + sat_states + ";"
+        label_lines.append(feat)
+    if with_dummy:
+        label_lines.append(f'label "dummy" = (state>{state_max}) ;')
+    label_lines = label_lines + [""]
+
+    lines = (
+        ["mdp", ""]
+        + ["module System", ""]
+        + state_lines
+        + transitions_lines
+        + ["endmodule", ""]
+        + init_lines
+        + label_lines
+    )
+    return [l + "\n" for l in lines]
+
+
 def satisfies(trace: Trace, spec: Specification, feature_fn: Feature_Func) -> bool:
-    partialmdp = PartialMDP()
+    partialmdp = PartialGraph(feature_fn)
     partialmdp.add_trace(trace)
-    lines = partialmdp.get_partial_mdp_lines(feature_fn=feature_fn)
+    lines = get_system(partialmdp, with_dummy=False, only_start_init=True)
     with open("model.prism", "w") as f:
         f.writelines(lines)
     output = run_bash_command(
@@ -439,4 +454,43 @@ def satisfies(trace: Trace, spec: Specification, feature_fn: Feature_Func) -> bo
             "stdout:comment",
         ]
     )
+    _ = run_bash_command(["rm", 'model.prism'])
     return get_specification_result(output=output)
+
+
+def get_decisions(mdp: PartialGraph, spec: Specification) -> Decisions:
+    lines = get_system(mdp.abstract_graph, with_dummy=True, only_start_init=False)
+    with open("partmodel.prism", "w") as f:
+        f.writelines(lines)
+    output = run_bash_command(
+        [
+            "prism",
+            "partmodel.prism",
+            "--pf",
+            f'Pmax=? [ ({spec}) | (F "dummy") ]',
+            "--exportresults",
+            "stdout:comment",
+            "--exportadvmdp",
+            "adv.txt",
+            "--exportstates",
+            "states.txt",
+            "--exporttrans",
+            "trans.txt",
+        ]
+    )
+    nt = Network("500px", "500px", directed=True)
+    nt.from_nx(mdp.abstract_graph.feature_graph)
+    nt.show_buttons(filter_=["physics"])
+    nt.show("graph.html")
+    # debug(output)
+    ## Check error in output here
+
+    pmcid_uid_map = parse_state_file("states.txt")
+    pmcid_action_map = parse_adv_file("adv.txt")
+
+    output = run_bash_command(["rm", 'states.txt', 'adv.txt', 'trans.txt', 'partmodel.prism'])
+    decisions = Decisions()
+    for pmcid, act in pmcid_action_map.items():
+        uid = pmcid_uid_map[pmcid]
+        decisions.add_decision(mdp.abstract_graph.feat_uid_to_features[uid], act)
+    return decisions
