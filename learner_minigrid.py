@@ -6,13 +6,13 @@ import matplotlib.pyplot as plt
 from typing import Set, Tuple, Callable, List
 from sklearn.tree import DecisionTreeClassifier, plot_tree
 
-from commons_minigrid import Decisions, features_to_key, debug, Features
+from commons_minigrid import Decisions, debug, Features
 
 
 def policy_decision_tree(model: DecisionTreeClassifier):
     def policy(feats: Features):
-        key = pd.DataFrame([features_to_key(feats)])
-        return model.predict(key)[0]
+        df = pd.DataFrame([feats.key])
+        return model.predict(df)[0]
 
     return policy
 

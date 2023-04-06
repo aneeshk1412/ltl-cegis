@@ -118,7 +118,7 @@ def is_at_agents_right(state: State, pos: Tuple[int, ...]) -> bool:
 """ Feature Functions """
 
 
-def main_object_features(state: State, *args) -> Features:
+def main_object_features(state: State, *args) -> dict[str, bool]:
     obj_name = "_".join(args)
     return {
         f"is_present__{obj_name}": is_present(state, *args),
@@ -133,7 +133,7 @@ def main_object_features(state: State, *args) -> Features:
     }
 
 
-def other_object_features(state: State, *args) -> Features:
+def other_object_features(state: State, *args) -> dict[str, bool]:
     obj_name = "_".join(args)
     return {
         f"check_agent_front_pos__{obj_name}": check(state, state.front_pos, *args),
@@ -143,11 +143,11 @@ def other_object_features(state: State, *args) -> Features:
 
 
 def features_empty(state: State) -> Features:
-    return {
+    return Features({
         **main_object_features(state, "goal"),
         **other_object_features(state, "wall"),
         f"check_agent_front_pos__empty": check(state, state.front_pos, "empty")
-    }
+    })
 
 
 """ Env Name to Feature Function Mapping """

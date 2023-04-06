@@ -6,22 +6,16 @@ import random
 import subprocess
 from copy import deepcopy
 from dataclasses import dataclass
-import matplotlib.pyplot as plt
 from typing import Tuple, Callable, List, Set
 
 import networkx as nx
-from minigrid.minigrid_env import MiniGridEnv
+from pyvis.network import Network
+
 from minigrid.core.constants import ACT_SET
-
-""" Simple Debugging """
-
-DEBUG = True
+from minigrid.minigrid_env import MiniGridEnv
 
 
-def debug(*args, **kwargs):
-    if DEBUG or kwargs["debug"]:
-        print(*args, **kwargs)
-
+""" Data Types """
 
 @dataclass
 class Arguments:
@@ -34,82 +28,46 @@ class Arguments:
     threshold: int = 200
 
 
-def parse_args() -> Arguments:
-    import argparse
-
-    parser = argparse.ArgumentParser()
-
-    parser.add_argument(
-        "--env", help="gym environment to load", default="MiniGrid-Empty-Random-6x6-v0"
-    )
-    parser.add_argument(
-        "--simulator-seed",
-        type=int,
-        help="seed for the simulator",
-        default=None,
-    )
-    parser.add_argument(
-        "--demo-seed",
-        type=int,
-        help="seed for the demo generator",
-        default=None,
-    )
-    parser.add_argument(
-        "--max-steps", type=int, help="number of steps to timeout after", default=100
-    )
-    parser.add_argument(
-        "--threshold",
-        type=int,
-        help="number of trials after which to declare safe",
-        default=200,
-    )
-    parser.add_argument(
-        "--tile-size", type=int, help="size at which to render tiles", default=32
-    )
-    parser.add_argument(
-        "--spec",
-        type=str,
-        help="specification to check",
-        default='F "is_agent_on__goal"',
-    )
-    parsed_args = parser.parse_args()
-
-    args = Arguments(
-        env_name=parsed_args.env,
-        spec=parsed_args.spec,
-        simulator_seed=parsed_args.simulator_seed,
-        max_steps=parsed_args.max_steps,
-        tile_size=parsed_args.tile_size,
-    )
-    return args
-
-
-""" Types """
+Specification = str
 
 State = MiniGridEnv
-Features = dict[str, bool]
-FeaturesKey = Tuple[bool, ...]
 Action = str
 Transition = Tuple[State, Action, State]
-## Add Index and IndexTransition
+
+FeaturesKey = Tuple[bool, ...]
+
+
+class Features(dict):
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self.key: FeaturesKey = tuple(
+            self[k] for k in sorted(self.keys())
+        )
+
+    def __hash__(self) -> int:
+        return hash(self.key)
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, Features):
+            return False
+        if self.key != other.key:
+            return False
+        return super().__eq__(other)
+
 
 Policy = Callable[[Features], Action]
 Feature_Func = Callable[[State], Features]
-Specification = str
 
 
 class Decisions(object):
     def __init__(self) -> None:
-        self.key_to_actions: dict[FeaturesKey, Set[Action]] = {}
-        self.key_to_features: dict[FeaturesKey, Features] = {}
+        self.features_to_actions: dict[Features, Set[Action]] = {}
 
     def add_decision(self, feats: Features, act: Action) -> None:
-        key = features_to_key(feats)
-        if key not in self.key_to_features:
-            self.key_to_features[key] = feats
-            self.key_to_actions[key] = {act}
+        if feats not in self.features_to_actions:
+            self.features_to_actions[feats] = {act}
         else:
-            self.key_to_actions[key].add(act)
+            self.features_to_actions[feats].add(act)
 
     def add_decision_list(self, decision_list: List[Tuple[Features, Action]]) -> None:
         for decision in decision_list:
@@ -117,17 +75,17 @@ class Decisions(object):
 
     def get_decisions(self) -> List[Tuple[Features, Action]]:
         ## Conflicting decisions possible
-        ### delegates to learner to resolve conflict
+        ## Delegates to learner to resolve conflict
         return [
-            (key, act)
-            for key in self.key_to_features
-            for act in self.key_to_actions[key]
+            (feats.key, act)
+            for feats in self.features_to_actions
+            for act in self.features_to_actions[feats]
         ]
-        ## Sampling a random decision
+        ## Sampling a random decision from conflicts
         return [
-            (key, act)
-            for key in self.key_to_features
-            for act in random.sample(self.key_to_actions[key], 1)
+            (feats.key, act)
+            for feats in self.features_to_actions
+            for act in random.sample(self.features_to_actions[feats], 1)
         ]
 
 
@@ -160,7 +118,7 @@ class PartialMDP(object):
         self.idxs_to_ids: dict[int, int] = {}
         self.idxs_to_states: dict[int, State] = {}
         self.idxs_to_unused_acts: dict[int, Set[Action]] = {}
-        self.graph = nx.DiGraph()
+        self.graph = nx.MultiDiGraph()
 
     def contains(self, state_id: int) -> bool:
         return state_id in self.ids_to_idxs
@@ -180,7 +138,7 @@ class PartialMDP(object):
     def add_trace(self, trace: Trace) -> None:
         self.graph.add_edges_from(
             [
-                (self.get_index_of(s), self.get_index_of(s_p), {"act": a})
+                (self.get_index_of(s), self.get_index_of(s_p), {"act": a, "label": a})
                 for s, a, s_p in trace
             ]
         )
@@ -307,8 +265,10 @@ class PartialMDP(object):
                 "trans.txt",
             ]
         )
-        nx.draw(self.graph, with_labels=True)
-        plt.savefig("graph.png")
+        nt = Network("500px", "500px", directed=True)
+        nt.from_nx(self.graph)
+        nt.show_buttons(filter_=['physics'])
+        nt.show("graph.html")
         # debug(output)
         ## Check error in output here
 
@@ -324,14 +284,79 @@ class PartialMDP(object):
 
 """ Functions """
 
+DEBUG = True
+
+
+def debug(*args, **kwargs):
+    """Simple debugging print statement"""
+    if DEBUG or kwargs["debug"]:
+        print(*args, **kwargs)
+
+
+def parse_args() -> Arguments:
+    """Parse all arguments for experiment"""
+    import argparse
+
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument(
+        "--env-name",
+        help="gym environment to load",
+        default="MiniGrid-Empty-Random-6x6-v0",
+    )
+    parser.add_argument(
+        "--spec",
+        type=str,
+        help="specification to check",
+        default='F "is_agent_on__goal"',
+    )
+    parser.add_argument(
+        "--simulator-seed",
+        type=int,
+        help="seed for the simulator",
+        default=None,
+    )
+    parser.add_argument(
+        "--demo-seed",
+        type=int,
+        help="seed for the demo generator",
+        default=None,
+    )
+    parser.add_argument(
+        "--max-steps", type=int, help="number of steps to timeout after", default=100
+    )
+    parser.add_argument(
+        "--tile-size", type=int, help="size at which to render tiles", default=32
+    )
+    parser.add_argument(
+        "--threshold",
+        type=int,
+        help="number of trials after which to declare safe",
+        default=200,
+    )
+    parsed_args = parser.parse_args()
+
+    args = Arguments(
+        env_name=parsed_args.env_name,
+        spec=parsed_args.spec,
+        simulator_seed=parsed_args.simulator_seed,
+        demo_seed=parsed_args.demo_seed,
+        max_steps=parsed_args.max_steps,
+        tile_size=parsed_args.tile_size,
+        threshold=parsed_args.threshold,
+    )
+    return args
+
 
 def run_bash_command(bash_command: List[str]) -> str:
+    """ Runs a bash command given as a list of strings"""
     process = subprocess.Popen(bash_command, stdout=subprocess.PIPE)
     output = process.communicate()[0]
     return output.decode("utf-8")
 
 
-def get_spec_result(output: str) -> bool:
+def get_specification_result(output: str) -> bool:
+    """ Check if the PRISM output for a given specification check returned True """
     result_str = "// RESULT: "
     index = output.find(result_str)
     if index == -1:
@@ -343,6 +368,7 @@ def get_spec_result(output: str) -> bool:
 def get_stem_and_loop(
     trace: List[Transition],
 ) -> Tuple[List[Transition], List[Transition] | None]:
+    """ Get stem and loop for a given trace """
     state_ids = [s.identifier() for s, _, _ in trace] + [trace[-1][2].identifier()]
     for i, x in enumerate(state_ids):
         try:
@@ -352,6 +378,49 @@ def get_stem_and_loop(
         except ValueError:
             continue
     return trace, None
+
+
+def demo_traces_to_pickle(demos: List[Trace], env_name: str) -> None:
+    """ Save the list of Demo traces to a pickle file """
+    with open("data/" + env_name + "-demos.pkl", "wb") as f:
+        pickle.dump(demos, f)
+
+
+def pickle_to_demo_traces(env_name: str) -> List[Trace]:
+    """ Load a list of Demo traces from a pickle file """
+    with open("data/" + env_name + "-demos.pkl", "rb") as f:
+        positive_demos = pickle.load(f)
+    return positive_demos
+
+
+state_exp = re.compile(r"(?P<pmcid>[-+]?\d+)\:\((?P<idx>[-+]?\d+)\)")
+
+
+def parse_state_file(state_file: str) -> dict[int, int]:
+    """ Parse state file """
+    pmcid_idx_map = {}
+    with open(state_file, "r") as f:
+        _ = f.readline()
+        for line in f:
+            d = state_exp.match(line)
+            pmcid_idx_map[int(d["pmcid"])] = int(d["idx"])
+    return pmcid_idx_map
+
+
+transition_exp = re.compile(
+    r"(?P<upmcid>[-+]?\d+) (?P<choice>[-+]?\d+) (?P<vpmcid>[-+]?\d+) (?P<prob>[-+]?\d+) (?P<act>\S+)"
+)
+
+
+def parse_adv_file(adv_file: str) -> dict[int, Action]:
+    """ Parse adversary file """
+    pmcid_action_map = {}
+    with open(adv_file, "r") as f:
+        _ = f.readline()
+        for line in f:
+            d = transition_exp.match(line)
+            pmcid_action_map[int(d["upmcid"])] = Action(d["act"])
+    return pmcid_action_map
 
 
 def satisfies(trace: Trace, spec: Specification, feature_fn: Feature_Func) -> bool:
@@ -370,47 +439,4 @@ def satisfies(trace: Trace, spec: Specification, feature_fn: Feature_Func) -> bo
             "stdout:comment",
         ]
     )
-    return get_spec_result(output=output)
-
-
-def demo_traces_to_pickle(demos: List[Trace], env_name: str) -> None:
-    with open("data/" + env_name + "-demos.pkl", "wb") as f:
-        pickle.dump(demos, f)
-
-
-def pickle_to_demo_traces(env_name: str) -> List[Trace]:
-    with open("data/" + env_name + "-demos.pkl", "rb") as f:
-        positive_demos = pickle.load(f)
-    return positive_demos
-
-
-def features_to_key(feats: Features) -> FeaturesKey:
-    return tuple(feats[k] for k in sorted(feats.keys()))
-
-
-state_exp = re.compile(r"(?P<pmcid>[-+]?\d+)\:\((?P<idx>[-+]?\d+)\)")
-
-
-def parse_state_file(state_file: str) -> dict[int, int]:
-    pmcid_idx_map = {}
-    with open(state_file, "r") as f:
-        _ = f.readline()
-        for line in f:
-            d = state_exp.match(line)
-            pmcid_idx_map[int(d["pmcid"])] = int(d["idx"])
-    return pmcid_idx_map
-
-
-transition_exp = re.compile(
-    r"(?P<upmcid>[-+]?\d+) (?P<choice>[-+]?\d+) (?P<vpmcid>[-+]?\d+) (?P<prob>[-+]?\d+) (?P<act>\S+)"
-)
-
-
-def parse_adv_file(adv_file: str) -> dict[int, Action]:
-    pmcid_action_map = {}
-    with open(adv_file, "r") as f:
-        _ = f.readline()
-        for line in f:
-            d = transition_exp.match(line)
-            pmcid_action_map[int(d["upmcid"])] = Action(d["act"])
-    return pmcid_action_map
+    return get_specification_result(output=output)
