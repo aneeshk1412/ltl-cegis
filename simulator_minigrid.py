@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 from copy import deepcopy
-from typing import Set, Tuple
+from typing import Set, Tuple, List
 
 from commons_minigrid import (
     State,
@@ -15,7 +15,7 @@ from commons_minigrid import (
 )
 
 from minigrid.core.constants import ACT_STR_TO_ENUM
-
+from minigrid.utils.window import Window
 
 def step(
     state: State,
@@ -25,18 +25,18 @@ def step(
 ) -> Tuple[bool, Transition]:
     a = policy(feature_fn(state))
     action = ACT_STR_TO_ENUM[a]
-    s = deepcopy(state)  ## Add to indexer
+    s = deepcopy(state)
     _, reward, terminated, truncated, _ = state.step(action=action)
-    s_p = deepcopy(state)  ## Add to indexer
-    done = None
+    s_p = deepcopy(state)
+    done, sat = None, None
     if truncated or state.identifier() in prev_env_id_set:
-        done = True
+        done, sat = True, False
     elif terminated and reward < 0.0:
-        done = True
+        done, sat = True, False
+        s_p = deepcopy(s)
     elif terminated:
-        done = True
-    ## return done, (idx, a, idx_p)
-    return done, (s, a, s_p)
+        done, sat = True, True
+    return done, sat, (s, a, s_p)
 
 
 def simulate_policy_on_state(
@@ -46,13 +46,17 @@ def simulate_policy_on_state(
     spec: Specification,
     args: Arguments,
 ):
+    """ Simulate a Policy starting from a State
+        and check if it satisfies a Specification.
+        Currently the Specification is encoded in the task environment.
+    """
     trace = list()
     prev_env_id_set = set()
     env = deepcopy(state)
     env.reset(soft=True, seed=args.simulator_seed, max_steps=args.max_steps)
     while True:
         prev_env_id_set.add(env.identifier())
-        done, transition = step(
+        done, sat, transition = step(
             state=env,
             policy=policy,
             feature_fn=feature_fn,
@@ -61,10 +65,35 @@ def simulate_policy_on_state(
         trace.append(transition)
         if done:
             break
-    ## Convert from IndexTransition to Transition before sending
+    if not sat and args.show_if_unsat:
+        window = Window("minigrid - " + str(env.__class__))
+        for s, _, _ in trace:
+            frame = s.get_frame(agent_pov=False)
+            window.show_img(frame)
+        frame = trace[-1][2].get_frame(agent_pov=False)
+        window.show_img(frame)
+        window.close()
+
     trace = Trace(trace)
-    sat = satisfies(trace=trace, spec=spec, feature_fn=feature_fn)
+    # assert sat == satisfies(trace, spec, feature_fn)
     return sat, trace
+
+
+def simulate_policy_on_list_of_states(
+    state_list: List[State],
+    policy: Policy,
+    feature_fn: Feature_Func,
+    spec: Specification,
+    args: Arguments,
+):
+    sat_trace_pairs = [
+        simulate_policy_on_state(
+            state=s, policy=policy, feature_fn=feature_fn, spec=spec, args=args
+        )
+        for s in state_list
+    ]
+    all_sat = all(sat for sat, _ in sat_trace_pairs)
+    return all_sat, sat_trace_pairs
 
 
 if __name__ == "__main__":
