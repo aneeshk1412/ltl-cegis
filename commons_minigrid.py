@@ -8,6 +8,7 @@ from copy import deepcopy
 from dataclasses import dataclass
 from typing import Tuple, Callable, List, Set
 
+import mtl
 import networkx as nx
 from pyvis.network import Network
 
@@ -27,6 +28,7 @@ class Arguments:
     max_steps: int = 100
     tile_size: int = 32
     threshold: int = 200
+    show_if_unsat: bool = False
 
 
 Specification = str
@@ -35,21 +37,23 @@ State = MiniGridEnv
 Action = str
 Transition = Tuple[State, Action, State]
 
-FeaturesKey = Tuple[bool, ...]
+FeaturesId = Tuple[bool, ...]
 
 
-class Features(dict):
+class Features(dict[str, bool]):
+    """A mapping from Feature Names to True/False"""
+
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
-        self.key: FeaturesKey = tuple(self[k] for k in sorted(self.keys()))
+        self.id: FeaturesId = tuple(self[k] for k in sorted(self.keys()))
 
     def __hash__(self) -> int:
-        return hash(self.key)
+        return hash(self.id)
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, Features):
             return False
-        if self.key != other.key:
+        if self.id != other.id:
             return False
         return super().__eq__(other)
 
@@ -72,17 +76,17 @@ class Decisions(object):
         for decision in decision_list:
             self.add_decision(*decision)
 
-    def get_decisions(self) -> List[Tuple[Features, Action]]:
+    def get_decisions(self) -> List[Tuple[FeaturesId, Action]]:
         ## Conflicting decisions possible
         ## Delegates to learner to resolve conflict
         return [
-            (feats.key, act)
+            (feats.id, act)
             for feats in self.features_to_actions
             for act in self.features_to_actions[feats]
         ]
         ## Sampling a random decision from conflicts
         return [
-            (feats.key, act)
+            (feats.id, act)
             for feats in self.features_to_actions
             for act in random.sample(self.features_to_actions[feats], 1)
         ]
@@ -110,150 +114,104 @@ class Trace(object):
     def get_loop(self) -> List[Transition]:
         return self.loop
 
+    def get_features_data(self, feature_fn: Feature_Func):
+        feats_list = [feature_fn(s) for s, _, _ in self.trace]
+        feats_list += [feature_fn(self.trace[-1][2])]
+
+        feats_data = {k: list() for k in feats_list[0].keys()}
+        for i, f_i in enumerate(feats_list):
+            for k in feats_list[0].keys():
+                feats_data[k].append((i, f_i[k]))
+        return feats_data
+
 
 class AbstractGraph(object):
     def __init__(self) -> None:
-        self.features_to_feat_uid: dict[Features, int] = {}
-        self.feat_uid_to_features: dict[int, Features] = {}
-        self.feature_graph = nx.MultiDiGraph()
-        self.feat_uid_to_unused_acts: dict[int, Set[Action]] = {}
+        self.feats_to_ids: dict[Features, int] = {}
+        self.ids_to_feats: dict[int, Features] = {}
+        self.graph = nx.MultiDiGraph()
+        self.ids_to_unseen_acts: dict[int, Set[Action]] = {}
 
-    def get_index(self, feats: Features, add: bool=True) -> int:
-        if feats in self.features_to_feat_uid:
-            return self.features_to_feat_uid[feats]
+    def get_index(self, feats: Features, add: bool = True) -> int:
+        if feats in self.feats_to_ids:
+            return self.feats_to_ids[feats]
         if add:
-            new_feat_uid = len(self.features_to_feat_uid)
-
-            self.features_to_feat_uid[feats] = new_feat_uid
-            self.feat_uid_to_features[new_feat_uid] = feats
-            self.feature_graph.add_node(
-                new_feat_uid, label=f"{new_feat_uid}"
-            )  ## Add title with features
-            return new_feat_uid
+            new_id = len(self.feats_to_ids)
+            self.feats_to_ids[feats] = new_id
+            self.ids_to_feats[new_id] = feats
+            title = "\n".join(k for k in feats if feats[k])
+            self.graph.add_node(new_id, label=f"{new_id}", title=title)
+            return new_id
         return -1
 
     def add_edge(self, u: Features, v: Features, a: Action) -> None:
-        u_feat_uid = self.get_index(u)
-        v_feat_uid = self.get_index(v)
-        self.feature_graph.add_edge(u_feat_uid, v_feat_uid, key=a, label=a)
-        if u_feat_uid not in self.feat_uid_to_unused_acts:
-            self.feat_uid_to_unused_acts[u_feat_uid] = deepcopy(ACT_SET)
-        self.feat_uid_to_unused_acts[u_feat_uid] -= {a}
+        u_id = self.get_index(u)
+        v_id = self.get_index(v)
+        self.graph.add_edge(u_id, v_id, key=a, label=a)
+        if u_id not in self.ids_to_unseen_acts:
+            self.ids_to_unseen_acts[u_id] = deepcopy(ACT_SET)
+        self.ids_to_unseen_acts[u_id] -= {a}
         self.remove_self_loop_on(u, a)
 
     def remove_self_loop_on(self, u: Features, a: Action) -> None:
-        u_p = self.get_index(u, add=False)
-        remove = False
-        for v_p in self.feature_graph[u_p]:
-            if v_p != u_p and any(a == a_p for a_p in self.feature_graph[u_p][v_p]):
-                remove = True
-                break
-        if remove and self.feature_graph.has_edge(u_p, u_p, key=a):
-            self.feature_graph.remove_edge(u_p, u_p, key=a)
+        u_id = self.get_index(u, add=False)
+        if not self.graph.has_edge(u_id, u_id, key=a):
+            return
+        remove = any(
+            a == a_p and v_id != u_id
+            for v_id in self.graph[u_id]
+            for a_p in self.graph[u_id][v_id]
+        )
+        if remove:
+            self.graph.remove_edge(u_id, u_id, key=a)
 
-    def get_transitions(self, with_dummy=True) -> List[Tuple[int, int, str]]:
-        transitions = [(u, v, a) for u, v, a in self.feature_graph.edges(keys=True)]
+    def get_transitions(
+        self, with_dummy=True
+    ) -> List[Tuple[Features, Action, Features]]:
+        transitions = [
+            (self.ids_to_feats[u], a, self.ids_to_feats[v])
+            for u, v, a in self.graph.edges(keys=True)
+        ]
         if with_dummy:
-            idx_counter = max(self.feat_uid_to_features.keys()) + 1
-            for u, acts in self.feat_uid_to_unused_acts.items():
+            idx_counter = max(self.ids_to_feats.keys()) + 1
+            for u_id, acts in self.ids_to_unseen_acts.items():
                 for a in acts:
-                    transitions.append((u, idx_counter, a))
+                    transitions.append(
+                        (self.ids_to_feats[u_id], a, Features({"dummy": True}))
+                    )
                     idx_counter += 1
         return transitions
 
-    def get_state_limits(self, with_dummy=True) -> Tuple[int, int]:
-        min_idx = min(self.feat_uid_to_features.keys())
-        max_idx = max(self.feat_uid_to_features.keys())
+    def get_id_transitions(self, with_dummy=True) -> List[Tuple[int, Action, int]]:
+        transitions = [(u, a, v) for u, v, a in self.graph.edges(keys=True)]
         if with_dummy:
-            max_idx += sum(len(acts) for acts in self.feat_uid_to_unused_acts.values())
+            idx_counter = max(self.ids_to_feats.keys()) + 1
+            for u, acts in self.ids_to_unseen_acts.items():
+                for a in acts:
+                    transitions.append((u, a, idx_counter))
+                    idx_counter += 1
+        return transitions
+
+    def get_id_state_limits(self, with_dummy=True) -> Tuple[int, int]:
+        min_idx = min(self.ids_to_feats.keys())
+        max_idx = max(self.ids_to_feats.keys())
+        if with_dummy:
+            max_idx += sum(len(acts) for acts in self.ids_to_unseen_acts.values())
         return (min_idx, max_idx)
 
-    def get_labels(self) -> dict[str, Set[int]]:
-        labels = {k: set() for k in self.feat_uid_to_features[0]}
-        for uid, feats in self.feat_uid_to_features.items():
+    def get_id_labels(self) -> dict[str, Set[int]]:
+        labels = {k: set() for k in self.ids_to_feats[0]}
+        for uid, feats in self.ids_to_feats.items():
             for k in labels:
                 if feats[k]:
                     labels[k].add(uid)
         return labels
 
-
-class PartialGraph(object):
-    def __init__(self, feature_fn=None) -> None:
-        self.state_id_to_state: dict[int, State] = {}
-        self.state_id_to_state_uid: dict[int, int] = {}
-        self.state_uid_to_state_id: dict[int, int] = {}
-        self.state_graph = nx.MultiDiGraph()
-        self.state_uid_to_unused_acts: dict[int, Set[Action]] = {}
-
-        self.feature_fn = feature_fn
-        self.features_to_state_ids: dict[Features, Set[int]] = {}
-
-        self.abstract_graph = AbstractGraph()
-
-    def get_index(self, state: State, add: bool=True) -> int:
-        state_id = state.identifier()
-        if state_id in self.state_id_to_state_uid:
-            return self.state_id_to_state_uid[state_id]
-        if add:
-            new_state_uid = len(self.state_id_to_state_uid)
-
-            self.state_id_to_state[state_id] = deepcopy(state)
-            self.state_id_to_state_uid[state_id] = new_state_uid
-            self.state_uid_to_state_id[new_state_uid] = state_id
-            self.state_graph.add_node(
-                new_state_uid, label=f"{new_state_uid}"
-            )  ## title with features
-
-            feats = self.feature_fn(state)
-            if feats not in self.features_to_state_ids:
-                self.features_to_state_ids[feats] = set()
-            self.features_to_state_ids[feats].add(state_id)
-
-            _ = self.abstract_graph.get_index(feats)
-            return new_state_uid
-        return -1
-
-    def add_edge(self, u: State, v: State, a: Action) -> None:
-        u_state_uid = self.get_index(u)
-        v_state_uid = self.get_index(v)
-
-        self.state_graph.add_edge(u_state_uid, v_state_uid, label=a, key=a)
-        if u_state_uid not in self.state_uid_to_unused_acts:
-            self.state_uid_to_unused_acts[u_state_uid] = deepcopy(ACT_SET)
-        self.state_uid_to_unused_acts[u_state_uid] -= {a}
-
-        self.abstract_graph.add_edge(self.feature_fn(u), self.feature_fn(v), a)
-
-    def add_trace(self, trace: Trace) -> None:
-        for u, a, v in trace:
-            self.add_edge(u, v, a)
-
-    def get_transitions(self, with_dummy=True) -> List[Tuple[int, int, str]]:
-        transitions = [(u, v, a) for u, v, a in self.state_graph.edges(keys=True)]
-        if with_dummy:
-            idx_counter = max(self.state_uid_to_state_id.keys()) + 1
-            for u, acts in self.state_uid_to_unused_acts.items():
-                for a in acts:
-                    transitions.append((u, idx_counter, a))
-                    idx_counter += 1
-        return transitions
-
-    def get_state_limits(self, with_dummy=True) -> Tuple[int, int]:
-        min_idx = min(self.state_uid_to_state_id.keys())
-        max_idx = max(self.state_uid_to_state_id.keys())
-        if with_dummy:
-            max_idx += sum(len(acts) for acts in self.state_uid_to_unused_acts.values())
-        return (min_idx, max_idx)
-
-    def get_labels(self) -> dict[str, Set[int]]:
-        f_ex = self.feature_fn(self.state_id_to_state[self.state_uid_to_state_id[0]])
-        labels = {k: set() for k in f_ex}
-        for feats in self.features_to_state_ids:
-            for k in labels:
-                if feats[k]:
-                    for state_id in self.features_to_state_ids[feats]:
-                        labels[k].add(self.state_id_to_state_uid[state_id])
-        return labels
+    def show_graph(self, filename: str = "absgraph.html") -> None:
+        nt = Network("500px", "500px", directed=True)
+        nt.from_nx(self.graph)
+        nt.show_buttons(filter_=["physics"])
+        nt.show(filename)
 
 
 """ Functions """
@@ -282,7 +240,7 @@ def parse_args() -> Arguments:
         "--spec",
         type=str,
         help="specification to check",
-        default='F "is_agent_on__goal"',
+        default="(F \"is_agent_on__goal\")",
     )
     parser.add_argument(
         "--simulator-seed",
@@ -308,6 +266,11 @@ def parse_args() -> Arguments:
         help="number of trials after which to declare safe",
         default=200,
     )
+    parser.add_argument(
+        "--show-if-unsat",
+        help="number of trials after which to declare safe",
+        action="store_true",
+    )
     parsed_args = parser.parse_args()
 
     args = Arguments(
@@ -318,6 +281,7 @@ def parse_args() -> Arguments:
         max_steps=parsed_args.max_steps,
         tile_size=parsed_args.tile_size,
         threshold=parsed_args.threshold,
+        show_if_unsat=parsed_args.show_if_unsat,
     )
     return args
 
@@ -327,16 +291,6 @@ def run_bash_command(bash_command: List[str]) -> str:
     process = subprocess.Popen(bash_command, stdout=subprocess.PIPE)
     output = process.communicate()[0]
     return output.decode("utf-8")
-
-
-def get_specification_result(output: str) -> bool:
-    """Check if the PRISM output for a given specification check returned True"""
-    result_str = "// RESULT: "
-    index = output.find(result_str)
-    if index == -1:
-        raise Exception("Could not compute the spec the result")
-    st_index = index + len(result_str)
-    return output[st_index : st_index + 4] == "true"
 
 
 def get_stem_and_loop(
@@ -397,24 +351,21 @@ def parse_adv_file(adv_file: str) -> dict[int, Action]:
     return pmcid_action_map
 
 
-def get_system(mdp: AbstractGraph | PartialGraph, with_dummy=True, only_start_init=False) -> List[str]:
-    state_min, dummy_max = mdp.get_state_limits(with_dummy=with_dummy)
+def get_system(graph: AbstractGraph, with_dummy=True) -> List[str]:
+    state_min, dummy_max = graph.get_id_state_limits(with_dummy=with_dummy)
     if dummy_max == state_min:
         dummy_max += 1
     state_lines = ["// World State", f"state: [{state_min}..{dummy_max}];", ""]
 
     transitions_lines = [
         f"[{a}] (state={u}) -> (state'={v}) ;"
-        for u, v, a in mdp.get_transitions(with_dummy=with_dummy)
+        for u, a, v in graph.get_id_transitions(with_dummy=with_dummy)
     ] + [""]
 
-    if only_start_init:
-        init_lines = [f"init state={state_min} endinit", ""]
-    else:
-        _, state_max = mdp.get_state_limits(with_dummy=False)
-        init_lines = [f"init state<={state_max} endinit", ""]
+    _, state_max = graph.get_id_state_limits(with_dummy=False)
+    init_lines = [f"init state<={state_max} endinit", ""]
 
-    labels = mdp.get_labels()
+    labels = graph.get_id_labels()
     label_lines = []
     for l in labels:
         sat_states = " | ".join(f"(state={s})" for s in labels[l])
@@ -439,27 +390,13 @@ def get_system(mdp: AbstractGraph | PartialGraph, with_dummy=True, only_start_in
 
 
 def satisfies(trace: Trace, spec: Specification, feature_fn: Feature_Func) -> bool:
-    partialmdp = PartialGraph(feature_fn)
-    partialmdp.add_trace(trace)
-    lines = get_system(partialmdp, with_dummy=False, only_start_init=True)
-    with open("model.prism", "w") as f:
-        f.writelines(lines)
-    output = run_bash_command(
-        [
-            "prism",
-            "model.prism",
-            "--pf",
-            f"P>=1 [ {spec} ]",
-            "--exportresults",
-            "stdout:comment",
-        ]
-    )
-    _ = run_bash_command(["rm", 'model.prism'])
-    return get_specification_result(output=output)
+    phi = mtl.parse(spec)
+    feats_data = trace.get_features_data(feature_fn)
+    return phi(feats_data, quantitative=False)
 
 
-def get_decisions(mdp: PartialGraph, spec: Specification) -> Decisions:
-    lines = get_system(mdp.abstract_graph, with_dummy=True, only_start_init=False)
+def get_decisions(graph: AbstractGraph, spec: Specification) -> Decisions:
+    lines = get_system(graph, with_dummy=True)
     with open("partmodel.prism", "w") as f:
         f.writelines(lines)
     output = run_bash_command(
@@ -478,19 +415,17 @@ def get_decisions(mdp: PartialGraph, spec: Specification) -> Decisions:
             "trans.txt",
         ]
     )
-    nt = Network("500px", "500px", directed=True)
-    nt.from_nx(mdp.abstract_graph.feature_graph)
-    nt.show_buttons(filter_=["physics"])
-    nt.show("graph.html")
     # debug(output)
     ## Check error in output here
 
-    pmcid_uid_map = parse_state_file("states.txt")
+    pmcid_id_map = parse_state_file("states.txt")
     pmcid_action_map = parse_adv_file("adv.txt")
 
-    output = run_bash_command(["rm", 'states.txt', 'adv.txt', 'trans.txt', 'partmodel.prism'])
+    _ = run_bash_command(
+        ["rm", "states.txt", "adv.txt", "trans.txt", "partmodel.prism"]
+    )
     decisions = Decisions()
     for pmcid, act in pmcid_action_map.items():
-        uid = pmcid_uid_map[pmcid]
-        decisions.add_decision(mdp.abstract_graph.feat_uid_to_features[uid], act)
+        id = pmcid_id_map[pmcid]
+        decisions.add_decision(graph.ids_to_feats[id], act)
     return decisions
