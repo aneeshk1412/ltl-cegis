@@ -10,6 +10,10 @@ from commons_minigrid import Decisions, debug, Features, Policy, Action, Argumen
 
 
 def augment_policy(policy: Policy, decisions: Decisions) -> Policy:
+    """Given a Policy and set of Decision, augment the Policy
+    so that the given set of Decisions is used over the Policy
+    """
+
     def new_policy(feats: Features) -> Action:
         if feats in decisions.features_to_actions:
             return list(decisions.features_to_actions[feats])[0]
@@ -21,7 +25,7 @@ def augment_policy(policy: Policy, decisions: Decisions) -> Policy:
 
 def policy_decision_tree(model: DecisionTreeClassifier) -> Policy:
     def policy(feats: Features) -> Action:
-        df = pd.DataFrame([feats.id])
+        df = pd.DataFrame([feats.key])
         return model.predict(df)[0]
 
     return policy
@@ -31,6 +35,9 @@ def learn(
     decisions: Decisions,
     args: Arguments,
 ) -> Tuple[Policy, DecisionTreeClassifier]:
+    """Given a set of Decisions, learn a Policy that has
+    the maximum agreement with the Decisions
+    """
     keys_list, actions_list = zip(*decisions.get_decisions())
     keys_df = pd.DataFrame(keys_list)
     actions_df = pd.DataFrame(actions_list)
@@ -56,6 +63,7 @@ def learn(
 def plot_model(
     model: DecisionTreeClassifier, class_names: Set[str], feature_names: List[str]
 ) -> None:
+    """Plot the Decision Tree model"""
     plot_tree(
         model,
         max_depth=None,
