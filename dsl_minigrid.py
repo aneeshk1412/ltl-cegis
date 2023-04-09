@@ -159,9 +159,20 @@ def features_multikey_ordered_1(state: State) -> Features:
     })
 
 
+def features_multikey_ordered_2(state: State) -> Features:
+    return Features({
+        **main_object_features(state, "goal"),
+        **main_object_features(state, "key", "red"),
+        **main_object_features(state, "key", "red"),
+        **other_object_features(state, "wall"),
+        f"check_agent_front_pos__empty": check(state, state.front_pos, "empty")
+    })
+
+
 """ Env Name to Feature Function Mapping """
 
 feature_mapping = {
     "MiniGrid-Empty-Random-6x6-v0": features_empty,
     "MiniGrid-MultiKey-K1-Ordered-16x16-v0": features_multikey_ordered_1,
+    "MiniGrid-MultiKey-K2-Ordered-16x16-v0": features_multikey_ordered_2,
 }
