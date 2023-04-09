@@ -30,6 +30,8 @@ class Arguments:
     tile_size: int = 32
     threshold: int = 200
     show_if_unsat: bool = False
+    learner_seed: int | None = None
+    save_leaner_model: bool = False
 
 
 Specification = str
@@ -256,6 +258,12 @@ def parse_args() -> Arguments:
         default=None,
     )
     parser.add_argument(
+        "--learner-seed",
+        type=int,
+        help="seed for the learner",
+        default=None,
+    )
+    parser.add_argument(
         "--max-steps", type=int, help="number of steps to timeout after", default=100
     )
     parser.add_argument(
@@ -270,6 +278,11 @@ def parse_args() -> Arguments:
     parser.add_argument(
         "--show-if-unsat",
         help="number of trials after which to declare safe",
+        action="store_true",
+    )
+    parser.add_argument(
+        "--save-learner-model",
+        help="Whether to save the learner model",
         action="store_true",
     )
     parsed_args = parser.parse_args()

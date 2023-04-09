@@ -35,7 +35,7 @@ if __name__ == "__main__":
     randomstate: MiniGridEnv = gym.make(args.env_name, tile_size=32)
     cegis_epochs = 0
     while True:
-        policy, model = learn(decisions)
+        policy, model = learn(decisions, args=args)
         count = 0
         while True:
             randomstate.reset()

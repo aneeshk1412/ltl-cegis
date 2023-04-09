@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 from typing import Set, Tuple, List
 from sklearn.tree import DecisionTreeClassifier, plot_tree
 
-from commons_minigrid import Decisions, debug, Features, Policy, Action
+from commons_minigrid import Decisions, debug, Features, Policy, Action, Arguments
 
 
 def augment_policy(policy: Policy, decisions: Decisions) -> Policy:
@@ -29,15 +29,14 @@ def policy_decision_tree(model: DecisionTreeClassifier) -> Policy:
 
 def learn(
     decisions: Decisions,
-    seed: int | None = None,
-    save: bool = False,
+    args: Arguments,
 ) -> Tuple[Policy, DecisionTreeClassifier]:
     keys_list, actions_list = zip(*decisions.get_decisions())
     keys_df = pd.DataFrame(keys_list)
     actions_df = pd.DataFrame(actions_list)
     model = DecisionTreeClassifier(
         class_weight="balanced",
-        random_state=seed,
+        random_state=args.learner_seed,
         max_features=None,
         max_leaf_nodes=None,
     )
@@ -48,7 +47,7 @@ def learn(
     )
     debug(f"Percent Agreement: {agrees / len(actions_list)}")
     policy = policy_decision_tree(model)
-    if save:
+    if args.save_leaner_model:
         with open("model.pkl", "wb") as f:
             pickle.dump(model, f)
     return policy, model
