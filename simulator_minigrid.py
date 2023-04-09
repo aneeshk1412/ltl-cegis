@@ -45,6 +45,7 @@ def simulate_policy_on_state(
     feature_fn: Feature_Func,
     spec: Specification,
     args: Arguments,
+    show_if_unsat: bool = False,
 ):
     """ Simulate a Policy starting from a State
         and check if it satisfies a Specification.
@@ -65,7 +66,7 @@ def simulate_policy_on_state(
         trace.append(transition)
         if done:
             break
-    if not sat and args.show_if_unsat:
+    if not sat and (show_if_unsat or args.show_if_unsat):
         window = Window("minigrid - " + str(env.__class__))
         for s, _, _ in trace:
             frame = s.get_frame(agent_pov=False)

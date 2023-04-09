@@ -3,6 +3,7 @@
 import re
 import pickle
 import random
+import itertools
 import subprocess
 from copy import deepcopy
 from dataclasses import dataclass
@@ -240,7 +241,7 @@ def parse_args() -> Arguments:
         "--spec",
         type=str,
         help="specification to check",
-        default="(F \"is_agent_on__goal\")",
+        default='(F "is_agent_on__goal")',
     )
     parser.add_argument(
         "--simulator-seed",
@@ -321,6 +322,14 @@ def pickle_to_demo_traces(env_name: str) -> List[Trace]:
     return positive_demos
 
 
+satisfying_exp = re.compile(r"yes = (?P<yes>[-+]?\d+), no = (?P<no>[-+]?\d+), maybe = (?P<maybe>[-+]?\d+)")
+
+
+def parse_number_of_reachable_states(output: str):
+    x = satisfying_exp.findall(output)
+    return {k: int(v) for k, v in zip(["yes", "no", "maybe"], x[0])}
+
+
 state_exp = re.compile(r"(?P<pmcid>[-+]?\d+)\:\((?P<idx>[-+]?\d+)\)")
 
 
@@ -351,6 +360,13 @@ def parse_adv_file(adv_file: str) -> dict[int, Action]:
     return pmcid_action_map
 
 
+def intervals_extract(iterable):
+    iterable = sorted(set(iterable))
+    for key, group in itertools.groupby(enumerate(iterable), lambda t: t[1] - t[0]):
+        group = list(group)
+        yield [group[0][1], group[-1][1]]
+
+
 def get_system(graph: AbstractGraph, with_dummy=True) -> List[str]:
     state_min, dummy_max = graph.get_id_state_limits(with_dummy=with_dummy)
     if dummy_max == state_min:
@@ -368,8 +384,13 @@ def get_system(graph: AbstractGraph, with_dummy=True) -> List[str]:
     labels = graph.get_id_labels()
     label_lines = []
     for l in labels:
-        sat_states = " | ".join(f"(state={s})" for s in labels[l])
-        if sat_states == "":
+        if labels[l]:
+            sat_states = intervals_extract(labels[l])
+            sat_states = " | ".join(
+                f"(state={s1})" if s1 == s2 else f"(state>={s1} & state<={s2})"
+                for s1, s2 in sat_states
+            )
+        else:
             sat_states = "false"
         feat = f'label "{l}" = ' + sat_states + ";"
         label_lines.append(feat)
@@ -404,7 +425,7 @@ def get_decisions(graph: AbstractGraph, spec: Specification) -> Decisions:
             "prism",
             "partmodel.prism",
             "--pf",
-            f'Pmax=? [ ({spec}) | (F "dummy") ]',
+            f'Pmax=? [ ({spec}) ]',
             "--exportresults",
             "stdout:comment",
             "--exportadvmdp",
@@ -415,7 +436,24 @@ def get_decisions(graph: AbstractGraph, spec: Specification) -> Decisions:
             "trans.txt",
         ]
     )
-    # debug(output)
+    reachable = parse_number_of_reachable_states(output)
+    if reachable['yes'] == 0:
+        output = run_bash_command(
+            [
+                "prism",
+                "partmodel.prism",
+                "--pf",
+                f'Pmax=? [ ({spec}) | (F "dummy")]',
+                "--exportresults",
+                "stdout:comment",
+                "--exportadvmdp",
+                "adv.txt",
+                "--exportstates",
+                "states.txt",
+                "--exporttrans",
+                "trans.txt",
+            ]
+        )
     ## Check error in output here
 
     pmcid_id_map = parse_state_file("states.txt")
