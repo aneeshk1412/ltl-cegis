@@ -165,14 +165,16 @@ class AbstractGraph(object):
         if remove:
             self.graph.remove_edge(u_id, u_id, key=a)
 
-    def add_edge(self, u: Features, v: Features, a: Action) -> None:
+    def add_edge(
+        self, u: Features, v: Features, a: Action, inverse_semantics: bool = True
+    ) -> None:
         u_id = self.get_index(u)
         v_id = self.get_index(v)
         self._add_edge_id(u_id, v_id, a)
         self._update_untried_acts(u_id, a)
         self._remove_self_loop_on_id(u_id, a)
 
-        if a in inverse:
+        if inverse_semantics and a in inverse:
             inv_a = inverse[a]
             self._add_edge_id(v_id, u_id, inv_a)
             self._update_untried_acts(v_id, inv_a)
