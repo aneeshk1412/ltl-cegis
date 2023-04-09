@@ -9,7 +9,6 @@ from copy import deepcopy
 from dataclasses import dataclass
 from typing import Tuple, Callable, List, Set
 
-import mtl
 import networkx as nx
 from pyvis.network import Network
 
@@ -40,7 +39,7 @@ State = MiniGridEnv
 Action = str
 Transition = Tuple[State, Action, State]
 
-FeaturesId = Tuple[bool, ...]
+FeaturesKey = Tuple[bool, ...]
 
 
 class Features(dict[str, bool]):
@@ -48,15 +47,15 @@ class Features(dict[str, bool]):
 
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
-        self.id: FeaturesId = tuple(self[k] for k in sorted(self.keys()))
+        self.key: FeaturesKey = tuple(self[k] for k in sorted(self.keys()))
 
     def __hash__(self) -> int:
-        return hash(self.id)
+        return hash(self.key)
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, Features):
             return False
-        if self.id != other.id:
+        if self.key != other.key:
             return False
         return super().__eq__(other)
 
@@ -79,11 +78,11 @@ class Decisions(object):
         for decision in decision_list:
             self.add_decision(*decision)
 
-    def get_decisions(self) -> List[Tuple[FeaturesId, Action]]:
+    def get_decisions(self) -> List[Tuple[FeaturesKey, Action]]:
         ## Conflicting decisions possible
         ## Delegates to learner to resolve conflict
         return [
-            (feats.id, act)
+            (feats.key, act)
             for feats in self.features_to_actions
             for act in self.features_to_actions[feats]
         ]
@@ -117,15 +116,13 @@ class Trace(object):
     def get_loop(self) -> List[Transition]:
         return self.loop
 
-    def get_features_data(self, feature_fn: Feature_Func):
-        feats_list = [feature_fn(s) for s, _, _ in self.trace]
-        feats_list += [feature_fn(self.trace[-1][2])]
 
-        feats_data = {k: list() for k in feats_list[0].keys()}
-        for i, f_i in enumerate(feats_list):
-            for k in feats_list[0].keys():
-                feats_data[k].append((i, f_i[k]))
-        return feats_data
+inverse = {
+    Action("left"): Action("right"),
+    Action("right"): Action("left"),
+    Action("pickup"): Action("drop"),
+    Action("drop"): Action("pickup"),
+}
 
 
 class AbstractGraph(object):
@@ -133,7 +130,7 @@ class AbstractGraph(object):
         self.feats_to_ids: dict[Features, int] = {}
         self.ids_to_feats: dict[int, Features] = {}
         self.graph = nx.MultiDiGraph()
-        self.ids_to_unseen_acts: dict[int, Set[Action]] = {}
+        self.ids_to_untried_acts: dict[int, Set[Action]] = {}
 
     def get_index(self, feats: Features, add: bool = True) -> int:
         if feats in self.feats_to_ids:
@@ -147,17 +144,17 @@ class AbstractGraph(object):
             return new_id
         return -1
 
-    def add_edge(self, u: Features, v: Features, a: Action) -> None:
-        u_id = self.get_index(u)
-        v_id = self.get_index(v)
+    def _add_edge_id(self, u_id: int, v_id: int, a: Action) -> None:
+        if self.graph.has_edge(u_id, v_id, key=a):
+            return
         self.graph.add_edge(u_id, v_id, key=a, label=a)
-        if u_id not in self.ids_to_unseen_acts:
-            self.ids_to_unseen_acts[u_id] = deepcopy(ACT_SET)
-        self.ids_to_unseen_acts[u_id] -= {a}
-        self.remove_self_loop_on(u, a)
 
-    def remove_self_loop_on(self, u: Features, a: Action) -> None:
-        u_id = self.get_index(u, add=False)
+    def _update_untried_acts(self, u_id: int, a: Action) -> None:
+        if u_id not in self.ids_to_untried_acts:
+            self.ids_to_untried_acts[u_id] = deepcopy(ACT_SET)
+        self.ids_to_untried_acts[u_id] -= {a}
+
+    def _remove_self_loop_on_id(self, u_id: int, a: Action) -> None:
         if not self.graph.has_edge(u_id, u_id, key=a):
             return
         remove = any(
@@ -168,6 +165,19 @@ class AbstractGraph(object):
         if remove:
             self.graph.remove_edge(u_id, u_id, key=a)
 
+    def add_edge(self, u: Features, v: Features, a: Action) -> None:
+        u_id = self.get_index(u)
+        v_id = self.get_index(v)
+        self._add_edge_id(u_id, v_id, a)
+        self._update_untried_acts(u_id, a)
+        self._remove_self_loop_on_id(u_id, a)
+
+        if a in inverse:
+            inv_a = inverse[a]
+            self._add_edge_id(v_id, u_id, inv_a)
+            self._update_untried_acts(v_id, inv_a)
+            self._remove_self_loop_on_id(v_id, inv_a)
+
     def get_transitions(
         self, with_dummy=True
     ) -> List[Tuple[Features, Action, Features]]:
@@ -177,7 +187,7 @@ class AbstractGraph(object):
         ]
         if with_dummy:
             idx_counter = max(self.ids_to_feats.keys()) + 1
-            for u_id, acts in self.ids_to_unseen_acts.items():
+            for u_id, acts in self.ids_to_untried_acts.items():
                 for a in acts:
                     transitions.append(
                         (self.ids_to_feats[u_id], a, Features({"dummy": True}))
@@ -189,7 +199,7 @@ class AbstractGraph(object):
         transitions = [(u, a, v) for u, v, a in self.graph.edges(keys=True)]
         if with_dummy:
             idx_counter = max(self.ids_to_feats.keys()) + 1
-            for u, acts in self.ids_to_unseen_acts.items():
+            for u, acts in self.ids_to_untried_acts.items():
                 for a in acts:
                     transitions.append((u, a, idx_counter))
                     idx_counter += 1
@@ -199,7 +209,7 @@ class AbstractGraph(object):
         min_idx = min(self.ids_to_feats.keys())
         max_idx = max(self.ids_to_feats.keys())
         if with_dummy:
-            max_idx += sum(len(acts) for acts in self.ids_to_unseen_acts.values())
+            max_idx += sum(len(acts) for acts in self.ids_to_untried_acts.values())
         return (min_idx, max_idx)
 
     def get_id_labels(self) -> dict[str, Set[int]]:
@@ -335,7 +345,9 @@ def pickle_to_demo_traces(env_name: str) -> List[Trace]:
     return positive_demos
 
 
-satisfying_exp = re.compile(r"yes = (?P<yes>[-+]?\d+), no = (?P<no>[-+]?\d+), maybe = (?P<maybe>[-+]?\d+)")
+satisfying_exp = re.compile(
+    r"yes = (?P<yes>[-+]?\d+), no = (?P<no>[-+]?\d+), maybe = (?P<maybe>[-+]?\d+)"
+)
 
 
 def parse_number_of_reachable_states(output: str):
@@ -347,7 +359,6 @@ state_exp = re.compile(r"(?P<pmcid>[-+]?\d+)\:\((?P<idx>[-+]?\d+)\)")
 
 
 def parse_state_file(state_file: str) -> dict[int, int]:
-    """Parse state file"""
     pmcid_idx_map = {}
     with open(state_file, "r") as f:
         _ = f.readline()
@@ -363,7 +374,6 @@ transition_exp = re.compile(
 
 
 def parse_adv_file(adv_file: str) -> dict[int, Action]:
-    """Parse adversary file"""
     pmcid_action_map = {}
     with open(adv_file, "r") as f:
         _ = f.readline()
@@ -375,7 +385,7 @@ def parse_adv_file(adv_file: str) -> dict[int, Action]:
 
 def intervals_extract(iterable):
     iterable = sorted(set(iterable))
-    for key, group in itertools.groupby(enumerate(iterable), lambda t: t[1] - t[0]):
+    for _, group in itertools.groupby(enumerate(iterable), lambda t: t[1] - t[0]):
         group = list(group)
         yield [group[0][1], group[-1][1]]
 
@@ -423,12 +433,6 @@ def get_system(graph: AbstractGraph, with_dummy=True) -> List[str]:
     return [l + "\n" for l in lines]
 
 
-def satisfies(trace: Trace, spec: Specification, feature_fn: Feature_Func) -> bool:
-    phi = mtl.parse(spec)
-    feats_data = trace.get_features_data(feature_fn)
-    return phi(feats_data, quantitative=False)
-
-
 def get_decisions(graph: AbstractGraph, spec: Specification) -> Decisions:
     lines = get_system(graph, with_dummy=True)
     with open("partmodel.prism", "w") as f:
@@ -438,7 +442,7 @@ def get_decisions(graph: AbstractGraph, spec: Specification) -> Decisions:
             "prism",
             "partmodel.prism",
             "--pf",
-            f'Pmax=? [ ({spec}) ]',
+            f"Pmax=? [ ({spec}) ]",
             "--exportresults",
             "stdout:comment",
             "--exportadvmdp",
@@ -450,7 +454,7 @@ def get_decisions(graph: AbstractGraph, spec: Specification) -> Decisions:
         ]
     )
     reachable = parse_number_of_reachable_states(output)
-    if reachable['yes'] == 0:
+    if reachable["yes"] == 0:
         output = run_bash_command(
             [
                 "prism",
