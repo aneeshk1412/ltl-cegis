@@ -33,6 +33,26 @@ class ManualControl:
         self.window = window
         self.window.reg_key_handler(self.key_handler)
 
+        self.key_to_action = {
+            "left": Actions.left,
+            "right": Actions.right,
+            "up": Actions.forward,
+            " ": Actions.toggle,
+            "pageup": Actions.pickup,
+            "pagedown": Actions.drop,
+            "enter": Actions.done,
+        }
+
+        self.key_to_act_str = {
+            "left": "left",
+            "right": "right",
+            "up": "forward",
+            " ": "toggle",
+            "pageup": "pickup",
+            "pagedown": "drop",
+            "enter": "done",
+        }
+
     def start(self):
         """Start the window display with blocking event loop"""
         self.reset(self.seed)
@@ -83,28 +103,8 @@ class ManualControl:
             self.reset()
             return
 
-        key_to_action = {
-            "left": Actions.left,
-            "right": Actions.right,
-            "up": Actions.forward,
-            " ": Actions.toggle,
-            "pageup": Actions.pickup,
-            "pagedown": Actions.drop,
-            "enter": Actions.done,
-        }
-
-        key_to_act_str = {
-            "left": "left",
-            "right": "right",
-            "up": "forward",
-            " ": "toggle",
-            "pageup": "pickup",
-            "pagedown": "drop",
-            "enter": "done",
-        }
-
-        action = key_to_action[key]
-        act = key_to_act_str[key]
+        action = self.key_to_action[key]
+        act = self.key_to_act_str[key]
         self.step(action, act)
 
 
