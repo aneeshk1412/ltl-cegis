@@ -10,6 +10,7 @@ from collections import deque
 from dataclasses import dataclass
 from typing import Tuple, Callable, List, Set
 
+import z3
 import networkx as nx
 from pyvis.network import Network
 
@@ -172,6 +173,13 @@ class AbstractGraph(object):
         self.ids_to_untried_acts: dict[int, Set[Action]] = {}
         self.reaching = Reachability()
 
+        self.booleans: dict[Tuple[int, Action], z3.Bool] = {}
+
+    def get_z3_bool(self, u: int, act: Action):
+        if (u, act) not in self.booleans:
+            self.booleans[u, act] = z3.Bool(f"{u}_{act}")
+        return self.booleans[u, act]
+
     def get_index(self, feats: Features, add: bool = True) -> int:
         if feats in self.feats_to_ids:
             return self.feats_to_ids[feats]
@@ -209,20 +217,27 @@ class AbstractGraph(object):
             self.graph.remove_edge(u_id, u_id, key=a)
 
     def add_edge(
-        self, u: Features, v: Features, a: Action, inverse_semantics: bool = True
+        self,
+        u: Features,
+        v: Features,
+        a: Action,
+        is_real_loop: bool,
+        inverse_semantics: bool = True,
     ) -> None:
         u_id = self.get_index(u)
         v_id = self.get_index(v)
 
         self._add_edge_id(u_id, v_id, a)
-        self._update_untried_acts(u_id, a)
+        if u_id != v_id or is_real_loop:
+            self._update_untried_acts(u_id, a)
         self._remove_self_loop_on_id(u_id, a)
         self.reaching.add_edge(u_id, v_id)
 
         if inverse_semantics and a in inverse:
             inv_a = inverse[a]
             self._add_edge_id(v_id, u_id, inv_a)
-            self._update_untried_acts(v_id, inv_a)
+            if u_id != v_id or is_real_loop:
+                self._update_untried_acts(v_id, inv_a)
             self._remove_self_loop_on_id(v_id, inv_a)
             self.reaching.add_edge(v_id, u_id)
 
@@ -231,6 +246,56 @@ class AbstractGraph(object):
 
     def can_reach(self, u: Features) -> bool:
         return self.reaching.can_reach(self.feats_to_ids[u])
+
+    def get_shortest_path_edges(
+        self, target_feats: Features
+    ) -> List[Tuple[Features, Action]]:
+        source_id = self.feats_to_ids[target_feats]
+        path = nx.single_source_shortest_path(self.graph.reverse(), source=source_id)
+        edges = []
+        for u_id in path:
+            try:
+                v_id = path[u_id][-2]
+                act = list(self.graph[u_id][v_id].keys())[0]
+                edges.append((self.ids_to_feats[u_id], act))
+            except IndexError:
+                assert u_id == path[u_id][0]
+        return edges
+
+    def get_edges_from_z3(self) -> List[Tuple[Features, Action]]:
+        """Get decisions using z3"""
+        solver: z3.Solver = z3.Solver()
+
+        """ Encode exactly one action for each state """
+        for u in self.graph:
+            solver.add(exactly_one(*[self.get_z3_bool(u, act) for act in ACT_SET]))
+
+        """ Encode no cycles in any of the decisions taken """
+        for cycle in nx.cycles.simple_cycles(self.graph):
+            solver.add(
+                z3.Not(
+                    z3.And(
+                        [
+                            z3.Or(
+                                [self.get_z3_bool(u, act) for act in self.graph[u][v]]
+                            )
+                            for u, v in zip(cycle, cycle[1:] + cycle[:1])
+                        ]
+                    )
+                )
+            )
+
+        """ Solve for the edges """
+        if solver.check() != z3.sat:
+            raise Exception("UNSAT!")
+        model = solver.model()
+        decisions = []
+        for u in self.graph:
+            for a in ACT_SET:
+                if model[self.get_z3_bool(u, a)]:
+                    # print(f"Take {a} for {u}, {[k for k in self.ids_to_feats[u] if self.ids_to_feats[u][k]]}")
+                    decisions.append((self.ids_to_feats[u], a))
+        return decisions
 
     def get_transitions(
         self, with_dummy=True
@@ -488,7 +553,7 @@ def get_system(graph: AbstractGraph, with_dummy=True) -> List[str]:
 
 
 def get_decisions(graph: AbstractGraph, spec: Specification) -> Decisions:
-    lines = get_system(graph, with_dummy=True)
+    lines = get_system(graph, with_dummy=False)
     with open("partmodel.prism", "w") as f:
         f.writelines(lines)
     output = run_bash_command(
@@ -508,11 +573,15 @@ def get_decisions(graph: AbstractGraph, spec: Specification) -> Decisions:
         ]
     )
     reachable = parse_number_of_reachable_states(output)
-    if reachable["yes"] == 0:
+    if reachable["no"] > 0:
+        _ = run_bash_command(["rm", "partmodel.prism"])
+        lines = get_system(graph, with_dummy=True)
+        with open("partmodeldummy.prism", "w") as f:
+            f.writelines(lines)
         output = run_bash_command(
             [
                 "prism",
-                "partmodel.prism",
+                "partmodeldummy.prism",
                 "--pf",
                 f'Pmax=? [ ({spec}) | (F "dummy")]',
                 "--exportresults",
@@ -538,3 +607,18 @@ def get_decisions(graph: AbstractGraph, spec: Specification) -> Decisions:
         id = pmcid_id_map[pmcid]
         decisions.add_decision(graph.ids_to_feats[id], act)
     return decisions
+
+
+def get_decisions_reachability(graph: AbstractGraph, target_feats: Features):
+    edges = graph.get_edges_from_z3()
+    decisions = Decisions()
+    for fs, a in edges:
+        decisions.add_decision(fs, a)
+    return decisions
+
+
+""" z3 helper functions """
+
+
+def exactly_one(*args):
+    return z3.And(z3.AtMost(*args, 1), z3.Or(*args))

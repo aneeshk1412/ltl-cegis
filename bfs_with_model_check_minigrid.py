@@ -4,17 +4,21 @@ import gymnasium as gym
 from copy import deepcopy
 from random import Random
 from collections import deque
+from typing import List, Tuple
 
 from learner_minigrid import learn
 from dsl_minigrid import feature_mapping
 from simulator_minigrid import simulate_policy_on_state, step
 from commons_minigrid import (
     debug,
+    Trace,
     Decisions,
     parse_args,
     AbstractGraph,
     get_decisions,
     pickle_to_demo_traces,
+    get_system,
+    get_decisions_reachability,
 )
 
 from minigrid.minigrid_env import MiniGridEnv
@@ -38,8 +42,12 @@ if __name__ == "__main__":
     """ Initialize Abstract Graph """
     for demo in demonstrations:
         for s, a, s_p in demo:
-            abstract_graph.add_edge(feature_fn(s), feature_fn(s_p), a)
-        # abstract_graph.set_reachable(feature_fn(s_p))
+            abstract_graph.add_edge(
+                feature_fn(s), feature_fn(s_p), a, s.identifier() == s_p.identifier()
+            )
+        abstract_graph.set_reachable(feature_fn(s_p))
+
+    target_feats = feature_fn(s_p)
 
     randomstate: MiniGridEnv = gym.make(args.env_name, tile_size=32)
     cegis_epochs = 0
@@ -47,7 +55,7 @@ if __name__ == "__main__":
     while True:
         policy, model = learn(decisions, args=args)
         count = 0
-        traces = []
+        traces: List[Tuple[bool, Trace]] = []
 
         while True:
             randomstate.reset(seed=randomstate_seed.randint(0, 1e10))
@@ -78,14 +86,25 @@ if __name__ == "__main__":
 
         for sat, tau in traces:
             for s, a, s_p in tau:
-                abstract_graph.add_edge(feature_fn(s), feature_fn(s_p), a)
+                abstract_graph.add_edge(
+                    feature_fn(s),
+                    feature_fn(s_p),
+                    a,
+                    s.identifier() == s_p.identifier(),
+                )
             if sat:
                 abstract_graph.set_reachable(feature_fn(s_p))
 
         counterex = trace
 
-        for s, a, _ in counterex:
-            print(abstract_graph.feats_to_ids[feature_fn(s)], abstract_graph.can_reach(feature_fn(s)), a)
+        # if all(abstract_graph.can_reach(feature_fn(s)) for s, _, _ in counterex):
+        #     for s, a, _ in counterex:
+        #         print(abstract_graph.feats_to_ids[feature_fn(s)], abstract_graph.can_reach(feature_fn(s)), a)
+        #     abstract_graph.show_graph(f"oddgraph.html")
+        #     sys = get_system(abstract_graph, with_dummy=False)
+        #     with open("oddgraph.prism", "w") as f:
+        #         f.writelines(sys)
+        #     # exit()
         # pprint(abstract_graph.reaching.reachable)
 
         state_queue = deque(
@@ -98,6 +117,7 @@ if __name__ == "__main__":
             current_feats_idx = abstract_graph.get_index(current_feats)
 
             if abstract_graph.can_reach(current_feats):
+                is_trace_reaching = True
                 break
             untried_acts = deepcopy(
                 abstract_graph.ids_to_untried_acts[current_feats_idx]
@@ -107,7 +127,12 @@ if __name__ == "__main__":
                 next_feats = feature_fn(next_s)
                 next_feats_idx = abstract_graph.get_index(next_feats)
 
-                abstract_graph.add_edge(current_feats, next_feats, a)
+                abstract_graph.add_edge(
+                    current_feats,
+                    next_feats,
+                    a,
+                    current_s.identifier() == next_s.identifier(),
+                )
 
                 if terminated and reward > 0.0:
                     abstract_graph.set_reachable(next_feats)
@@ -120,5 +145,8 @@ if __name__ == "__main__":
                 break
 
         abstract_graph.show_graph(f"graph.html")
-        decisions = get_decisions(abstract_graph, args.spec)
-        # Assert success on all known environments?
+        if not is_trace_reaching:
+            raise Exception("What!")
+
+        # decisions = get_decisions(abstract_graph, args.spec)
+        decisions = get_decisions_reachability(abstract_graph, target_feats)

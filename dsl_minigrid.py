@@ -150,6 +150,14 @@ def features_empty(state: State) -> Features:
     })
 
 
+def features_empty_pruned(state: State) -> Features:
+    return Features({
+        f"check_agent_front_pos__empty": check(state, state.front_pos, "empty"),
+        f"check_agent_front_pos__wall": check(state, state.front_pos, "wall"),
+        f"is_agent_on__goal": is_agent_on(state, get_nearest(state, "goal")),
+    })
+
+
 def features_multikey_ordered_1(state: State) -> Features:
     return Features({
         **main_object_features(state, "goal"),
@@ -157,6 +165,18 @@ def features_multikey_ordered_1(state: State) -> Features:
         **other_object_features(state, "wall"),
         f"check_agent_front_pos__empty": check(state, state.front_pos, "empty")
     })
+
+
+def features_multikey_ordered_1_pruned(state: State) -> Features:
+    return Features({
+        **main_object_features(state, "goal"),
+        **main_object_features(state, "key", "red"),
+        **other_object_features(state, "wall"),
+        f"check_agent_front_pos__empty": check(state, state.front_pos, "empty"),
+        f"check_agent_front_pos__wall": check(state, state.front_pos, "wall"),
+        f"is_agent_on__goal": is_agent_on(state, get_nearest(state, "goal")),
+    })
+
 
 
 def features_multikey_ordered_2(state: State) -> Features:

@@ -1,3 +1,4 @@
 pyvis
 networkx
+z3-solver
 scikit-learn
