@@ -65,7 +65,7 @@ if __name__ == "__main__":
                 feature_fn=feature_fn,
                 spec=args.spec,
                 args=args,
-                show_if_unsat=False,
+                show_if_unsat=True,
             )
             count += 1
             traces.append((sat, trace))

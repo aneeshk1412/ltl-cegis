@@ -174,6 +174,7 @@ class AbstractGraph(object):
         self.reaching = Reachability()
 
         self.booleans: dict[Tuple[int, Action], z3.Bool] = {}
+        self.old_models: List[z3.Model] = []
 
     def get_z3_bool(self, u: int, act: Action):
         if (u, act) not in self.booleans:
@@ -285,6 +286,10 @@ class AbstractGraph(object):
                 )
             )
 
+        """ Do not repeat old model """
+        for model in self.old_models:
+            block_model(solver, model)
+
         """ Solve for the edges """
         if solver.check() != z3.sat:
             raise Exception("UNSAT!")
@@ -295,6 +300,7 @@ class AbstractGraph(object):
                 if model[self.get_z3_bool(u, a)]:
                     # print(f"Take {a} for {u}, {[k for k in self.ids_to_feats[u] if self.ids_to_feats[u][k]]}")
                     decisions.append((self.ids_to_feats[u], a))
+        self.old_models.append(deepcopy(model))
         return decisions
 
     def get_transitions(
@@ -622,3 +628,7 @@ def get_decisions_reachability(graph: AbstractGraph, target_feats: Features):
 
 def exactly_one(*args):
     return z3.And(z3.AtMost(*args, 1), z3.Or(*args))
+
+
+def block_model(solver, model):
+    solver.add(z3.Or([ f() != model[f] for f in model.decls() if f.arity() == 0]))
