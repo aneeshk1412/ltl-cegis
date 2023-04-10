@@ -500,11 +500,11 @@ def get_decisions(graph: AbstractGraph, spec: Specification) -> Decisions:
             "--exportresults",
             "stdout:comment",
             "--exportadvmdp",
-            "adv.txt",
+            "adv.tra",
             "--exportstates",
-            "states.txt",
+            "states.tra",
             "--exporttrans",
-            "trans.txt",
+            "trans.tra",
         ]
     )
     reachable = parse_number_of_reachable_states(output)
@@ -518,20 +518,20 @@ def get_decisions(graph: AbstractGraph, spec: Specification) -> Decisions:
                 "--exportresults",
                 "stdout:comment",
                 "--exportadvmdp",
-                "adv.txt",
+                "adv.tra",
                 "--exportstates",
-                "states.txt",
+                "states.tra",
                 "--exporttrans",
-                "trans.txt",
+                "trans.tra",
             ]
         )
     ## Check error in output here
 
-    pmcid_id_map = parse_state_file("states.txt")
-    pmcid_action_map = parse_adv_file("adv.txt")
+    pmcid_id_map = parse_state_file("states.tra")
+    pmcid_action_map = parse_adv_file("adv.tra")
 
     # _ = run_bash_command(
-    #     ["rm", "states.txt", "adv.txt", "trans.txt", "partmodel.prism"]
+    #     ["rm", "states.tra", "adv.tra", "trans.tra", "partmodel.prism"]
     # )
     decisions = Decisions()
     for pmcid, act in pmcid_action_map.items():

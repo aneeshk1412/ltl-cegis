@@ -7,6 +7,6 @@ __pycache__/
 lib/
 *.prism
 *.pctl
-*.txt
+*.tra
 *.png
 *.html
