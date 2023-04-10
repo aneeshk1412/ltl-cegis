@@ -6,6 +6,7 @@ import random
 import itertools
 import subprocess
 from copy import deepcopy
+from collections import deque
 from dataclasses import dataclass
 from typing import Tuple, Callable, List, Set
 
@@ -125,12 +126,51 @@ inverse = {
 }
 
 
+class Reachability(object):
+    def __init__(self) -> None:
+        self.reachable: dict[int, bool] = {}
+        self.adj_tr: dict[int, set[int]] = {}
+        self.adj: dict[int, set[int]] = {}
+
+    def add_node(self, u: int, r: bool = False) -> None:
+        self.reachable[u] = r
+        self.adj_tr[u] = set()
+        self.adj[u] = set()
+
+    def _update_bfs(self, s: int) -> None:
+        vis = set()
+        queue = deque([s])
+        while queue:
+            u = queue.pop()
+            vis.add(u)
+            if self.reachable[u]:
+                continue
+            self.reachable[u] = True
+            for v in self.adj_tr[u]:
+                if v in vis:
+                    continue
+                queue.append(v)
+
+    def add_edge(self, u: int, v: int) -> None:
+        self.adj_tr[v].add(u)
+        self.adj[u].add(v)
+        if self.reachable[v]:
+            self._update_bfs(u)
+
+    def set_reachable(self, s: int) -> None:
+        self._update_bfs(s)
+
+    def can_reach(self, s: int):
+        return self.reachable[s]
+
+
 class AbstractGraph(object):
     def __init__(self) -> None:
         self.feats_to_ids: dict[Features, int] = {}
         self.ids_to_feats: dict[int, Features] = {}
         self.graph = nx.MultiDiGraph()
         self.ids_to_untried_acts: dict[int, Set[Action]] = {}
+        self.reaching = Reachability()
 
     def get_index(self, feats: Features, add: bool = True) -> int:
         if feats in self.feats_to_ids:
@@ -139,8 +179,11 @@ class AbstractGraph(object):
             new_id = len(self.feats_to_ids)
             self.feats_to_ids[feats] = new_id
             self.ids_to_feats[new_id] = feats
+            self.ids_to_untried_acts[new_id] = deepcopy(ACT_SET)
+
             title = "\n".join(k for k in feats if feats[k])
             self.graph.add_node(new_id, label=f"{new_id}", title=title)
+            self.reaching.add_node(new_id)
             return new_id
         return -1
 
@@ -170,15 +213,24 @@ class AbstractGraph(object):
     ) -> None:
         u_id = self.get_index(u)
         v_id = self.get_index(v)
+
         self._add_edge_id(u_id, v_id, a)
         self._update_untried_acts(u_id, a)
         self._remove_self_loop_on_id(u_id, a)
+        self.reaching.add_edge(u_id, v_id)
 
         if inverse_semantics and a in inverse:
             inv_a = inverse[a]
             self._add_edge_id(v_id, u_id, inv_a)
             self._update_untried_acts(v_id, inv_a)
             self._remove_self_loop_on_id(v_id, inv_a)
+            self.reaching.add_edge(v_id, u_id)
+
+    def set_reachable(self, u: Features) -> None:
+        self.reaching.set_reachable(self.feats_to_ids[u])
+
+    def can_reach(self, u: Features) -> bool:
+        return self.reaching.can_reach(self.feats_to_ids[u])
 
     def get_transitions(
         self, with_dummy=True
@@ -478,9 +530,9 @@ def get_decisions(graph: AbstractGraph, spec: Specification) -> Decisions:
     pmcid_id_map = parse_state_file("states.txt")
     pmcid_action_map = parse_adv_file("adv.txt")
 
-    _ = run_bash_command(
-        ["rm", "states.txt", "adv.txt", "trans.txt", "partmodel.prism"]
-    )
+    # _ = run_bash_command(
+    #     ["rm", "states.txt", "adv.txt", "trans.txt", "partmodel.prism"]
+    # )
     decisions = Decisions()
     for pmcid, act in pmcid_action_map.items():
         id = pmcid_id_map[pmcid]
