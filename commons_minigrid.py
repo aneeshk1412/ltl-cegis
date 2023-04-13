@@ -118,6 +118,9 @@ class Trace(object):
     def get_loop(self) -> List[Transition]:
         return self.loop
 
+    def get_state_seq(self) -> List[State]:
+        return [s for s, _, _ in self.trace] + [self.trace[-1][2]]
+
 
 inverse = {
     Action("left"): Action("right"),
@@ -134,9 +137,10 @@ class Reachability(object):
         self.adj: dict[int, set[int]] = {}
 
     def add_node(self, u: int, r: bool = False) -> None:
-        self.reachable[u] = r
-        self.adj_tr[u] = set()
-        self.adj[u] = set()
+        if not u in self.reachable:
+            self.reachable[u] = r
+            self.adj_tr[u] = set()
+            self.adj[u] = set()
 
     def _update_bfs(self, s: int) -> None:
         vis = set()
@@ -153,6 +157,8 @@ class Reachability(object):
                 queue.append(v)
 
     def add_edge(self, u: int, v: int) -> None:
+        self.add_node(u)
+        self.add_node(v)
         self.adj_tr[v].add(u)
         self.adj[u].add(v)
         if self.reachable[v]:
@@ -350,6 +356,108 @@ class AbstractGraph(object):
         nt.from_nx(self.graph)
         nt.show_buttons(filter_=["physics"])
         nt.show(filename)
+
+
+class ConcreteGraph(object):
+    def __init__(self) -> None:
+        self.state_id_to_idx = {}
+        self.idx_to_state_id = {}
+        self.idx_to_state = {}
+        self.idx_to_untried_acts = {}
+        self.graph = nx.MultiDiGraph()
+        self.reach = Reachability()
+
+        self.booleans = {}
+        self.old_models = []
+
+    def get_z3_bool(self, u: int, a: Action):
+        if (u, a) not in self.booleans:
+            self.booleans[u, a] = z3.Bool(f"{u}_{a}")
+        return self.booleans[u, a]
+
+    def get_index(self, s: State, add: bool = True) -> int:
+        ident = s.identifier()
+        if ident in self.state_id_to_idx:
+            return self.state_id_to_idx[ident]
+        if add:
+            new_idx = len(self.idx_to_state_id)
+            self.idx_to_state_id[new_idx] = ident
+            self.state_id_to_idx[ident] = new_idx
+            self.idx_to_state[new_idx] = deepcopy(s)
+            self.idx_to_untried_acts[new_idx] = deepcopy(ACT_SET)
+            return new_idx
+        return -1
+
+    def _add_edge_idx(self, s_idx: int, a: Action, s_p_idx: int):
+        if not self.graph.has_edge(s_idx, s_p_idx, key=a):
+            self.graph.add_edge(s_idx, s_p_idx, key=a)
+
+    def add_transition(self, transition: Tuple[State, Action, State]):
+        s, a, s_p = transition
+        s_idx = self.get_index(s)
+        s_p_idx = self.get_index(s_p)
+        self._add_edge_idx(s_idx, a, s_p_idx)
+        self.idx_to_untried_acts[s_idx] -= {a}
+        self.reach.add_edge(s_idx, s_p_idx)
+
+        if a in inverse:
+            inv_a = inverse[a]
+            self._add_edge_idx(s_p_idx, inv_a, s_idx)
+            self.idx_to_untried_acts[s_p_idx] -= {inv_a}
+            self.reach.add_edge(s_p_idx, s_idx)
+
+    def add_trace(self, trace: Trace):
+        for transition in trace:
+            self.add_transition(transition)
+
+    def set_reachable(self, s: State):
+        self.reach.set_reachable(self.get_index(s))
+
+    def can_reach(self, s: State) -> bool:
+        return self.reach.can_reach(self.get_index(s))
+
+    def get_untried_acts(self, s: State) -> Set[Action]:
+        return self.idx_to_untried_acts[self.get_index(s)]
+
+    def get_edges_from_z3(self, feature_fn: Feature_Func) -> List[Tuple[Features, Action]]:
+        """Get decisions using z3"""
+        solver = z3.Solver()
+
+        """ Encode exactly one action for each state """
+        for u in self.graph:
+            s = self.idx_to_state[u]
+            solver.add(exactly_one(*[self.get_z3_bool(feature_fn(s), act) for act in ACT_SET]))
+
+        """ Encode no cycles in any of the decisions taken """
+        for cycle in nx.cycles.simple_cycles(self.graph):
+            solver.add(
+                z3.Not(
+                    z3.And(
+                        [
+                            z3.Or(
+                                [self.get_z3_bool(feature_fn(self.idx_to_state[u]), act) for act in self.graph[u][v]]
+                            )
+                            for u, v in zip(cycle, cycle[1:] + cycle[:1])
+                        ]
+                    )
+                )
+            )
+
+        """ Do not repeat old model """
+        for model in self.old_models:
+            block_model(solver, model)
+
+        """ Solve for the edges """
+        if solver.check() != z3.sat:
+            raise Exception("UNSAT!")
+        model = solver.model()
+        decisions = []
+        for u in self.graph:
+            for a in ACT_SET:
+                if model[self.get_z3_bool(feature_fn(self.idx_to_state[u]), a)]:
+                    decisions.append((feature_fn(self.idx_to_state[u]), a))
+        self.old_models.append(deepcopy(model))
+        return decisions
 
 
 """ Functions """
@@ -615,8 +723,8 @@ def get_decisions(graph: AbstractGraph, spec: Specification) -> Decisions:
     return decisions
 
 
-def get_decisions_reachability(graph: AbstractGraph, target_feats: Features):
-    edges = graph.get_edges_from_z3()
+def get_decisions_reachability(graph: ConcreteGraph, feature_fn: Feature_Func):
+    edges = graph.get_edges_from_z3(feature_fn)
     decisions = Decisions()
     for fs, a in edges:
         decisions.add_decision(fs, a)
@@ -631,4 +739,4 @@ def exactly_one(*args):
 
 
 def block_model(solver, model):
-    solver.add(z3.Or([ f() != model[f] for f in model.decls() if f.arity() == 0]))
+    solver.add(z3.Or([f() != model[f] for f in model.decls() if f.arity() == 0]))
