@@ -55,6 +55,15 @@ def step_wrapper(
     return done, sat, (s, a, s_p)
 
 
+def intersperse(lst, item, n):
+    res = []
+    for i in range(len(lst)):
+        res.append(lst[i])
+        if i % n == n - 1:
+            res.append(item)
+    return res
+
+
 def show_policy_on_window(
     state: State, policy: Policy, feature_fn: Feature_Func, args: Arguments
 ):
@@ -70,6 +79,10 @@ def show_policy_on_window(
         _, reward, terminated, truncated, _ = env.step(action=action)
         frame = env.get_frame(agent_pov=False)
         window.show_img(frame)
+        feats = "    ".join(
+            intersperse([k for k, v in feature_fn(state).items() if v], "\n", 3)
+        )
+        window.set_caption(f"Action: {act}\n Features: {feats}")
         if truncated:
             break
         elif terminated and reward < 0.0:
