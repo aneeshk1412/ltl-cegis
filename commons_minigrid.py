@@ -118,7 +118,7 @@ class Trace(object):
     def get_loop(self) -> List[Transition]:
         return self.loop
 
-    def get_state_seq(self) -> List[State]:
+    def get_state_sequence(self) -> List[State]:
         return [s for s, _, _ in self.trace] + [self.trace[-1][2]]
 
 
@@ -134,15 +134,13 @@ class Reachability(object):
     def __init__(self) -> None:
         self.reachable: dict[int, bool] = {}
         self.adj_tr: dict[int, set[int]] = {}
-        self.adj: dict[int, set[int]] = {}
 
     def add_node(self, u: int, r: bool = False) -> None:
         if not u in self.reachable:
             self.reachable[u] = r
             self.adj_tr[u] = set()
-            self.adj[u] = set()
 
-    def _update_bfs(self, s: int) -> None:
+    def _set_as_reachable(self, s: int) -> None:
         vis = set()
         queue = deque([s])
         while queue:
@@ -160,12 +158,11 @@ class Reachability(object):
         self.add_node(u)
         self.add_node(v)
         self.adj_tr[v].add(u)
-        self.adj[u].add(v)
         if self.reachable[v]:
-            self._update_bfs(u)
+            self._set_as_reachable(u)
 
     def set_reachable(self, s: int) -> None:
-        self._update_bfs(s)
+        self._set_as_reachable(s)
 
     def can_reach(self, s: int):
         return self.reachable[s]
@@ -223,6 +220,14 @@ class AbstractGraph(object):
         if remove:
             self.graph.remove_edge(u_id, u_id, key=a)
 
+    def add_trace(self, trace: Trace, feature_fn: Feature_Func) -> None:
+        for transition in trace:
+            self.add_transition(transition, feature_fn)
+
+    def add_transition(self, transition: Transition, feature_fn: Feature_Func) -> None:
+        s, a, s_p = transition
+        self.add_edge(feature_fn(s), feature_fn(s_p), a, s == s_p, True)
+
     def add_edge(
         self,
         u: Features,
@@ -253,6 +258,9 @@ class AbstractGraph(object):
 
     def can_reach(self, u: Features) -> bool:
         return self.reaching.can_reach(self.feats_to_ids[u])
+
+    def get_untried_acts(self, u: Features) -> Set[Action]:
+        return self.ids_to_untried_acts[self.get_index(u)]
 
     def get_shortest_path_edges(
         self, target_feats: Features

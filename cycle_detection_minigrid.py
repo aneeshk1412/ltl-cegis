@@ -16,6 +16,7 @@ from commons_minigrid import (
     Decisions,
     parse_args,
     ConcreteGraph,
+    AbstractGraph,
     pickle_to_demo_traces,
     get_decisions_reachability,
 )
@@ -28,7 +29,7 @@ if __name__ == "__main__":
     randomstate_seed = Random(args.simulator_seed)
 
     feature_fn = feature_mapping[args.env_name]
-    concrete_graph = ConcreteGraph()
+    graph = AbstractGraph()
 
     """ Get initial Decisions from Demonstrations """
     demonstrations = pickle_to_demo_traces(args.env_name)
@@ -38,8 +39,8 @@ if __name__ == "__main__":
 
     """ Initialize Abstract Graph """
     for demo in demonstrations:
-        concrete_graph.add_trace(demo)
-        concrete_graph.set_reachable(demo[-1][2])
+        graph.add_trace(demo, feature_fn)
+        graph.set_reachable(feature_fn(demo[-1][2]))
 
     randomstate: MiniGridEnv = gym.make(args.env_name, tile_size=32)
     cegis_epochs = 0
@@ -77,26 +78,26 @@ if __name__ == "__main__":
         print(f"CEGIS Epoch: {cegis_epochs}, Counterexample found at Run: {count}")
 
         for sat, tau in traces:
-            concrete_graph.add_trace(tau)
+            graph.add_trace(tau, feature_fn)
             if sat:
-                concrete_graph.set_reachable(tau[-1][2])
+                graph.set_reachable(feature_fn(tau[-1][2]))
 
         counterex = trace
 
-        state_queue = deque([deepcopy(s) for s in reversed(counterex.get_state_seq())])
+        state_queue = deque([deepcopy(s) for s in reversed(counterex.get_state_sequence())])
         is_trace_reaching = False
         while state_queue:
             current_s = state_queue.pop()
-            if concrete_graph.can_reach(current_s):
+            if graph.can_reach(feature_fn(current_s)):
                 is_trace_reaching = True
                 break
-            untried_acts = deepcopy(concrete_graph.get_untried_acts(current_s))
+            untried_acts = deepcopy(graph.get_untried_acts(feature_fn(current_s)))
             for a in untried_acts:
                 current_s, a, next_s, reward, terminated, _ = step(current_s, a)
-                concrete_graph.add_transition((current_s, a, next_s))
+                graph.add_transition((current_s, a, next_s), feature_fn)
                 if terminated and reward > 0.0:
-                    concrete_graph.set_reachable(next_s)
-                if concrete_graph.can_reach(next_s):
+                    graph.set_reachable(feature_fn(next_s))
+                if graph.can_reach(feature_fn(next_s)):
                     is_trace_reaching = True
                     break
                 state_queue.append(next_s)
@@ -105,4 +106,4 @@ if __name__ == "__main__":
 
         if not is_trace_reaching:
             raise Exception("What!")
-        decisions = get_decisions_reachability(concrete_graph, feature_fn)
+        decisions = get_decisions_reachability(graph, feature_fn)

@@ -149,6 +149,12 @@ def features_empty(state: State) -> Features:
         f"check_agent_front_pos__empty": check(state, state.front_pos, "empty")
     })
 
+def features_empty_pruned(state: State) -> Features:
+    return Features({
+        f"check_agent_front_pos__empty": check(state, state.front_pos, "empty"),
+        **other_object_features(state, "wall"),
+        f"is_agent_on__goal": is_agent_on(state, get_nearest(state, "goal")),
+    })
 
 def features_empty_pruned(state: State) -> Features:
     return Features({

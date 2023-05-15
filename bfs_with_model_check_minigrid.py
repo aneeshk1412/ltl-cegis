@@ -17,6 +17,7 @@ from commons_minigrid import (
     AbstractGraph,
     pickle_to_demo_traces,
     get_decisions_reachability,
+    get_decisions
 )
 
 from minigrid.minigrid_env import MiniGridEnv
@@ -37,9 +38,9 @@ if __name__ == "__main__":
 
     """ Initialize Abstract Graph """
     for demo in demonstrations:
-        for s, a, s_p in demo:
+        for u, a, s_p in demo:
             abstract_graph.add_edge(
-                feature_fn(s), feature_fn(s_p), a, s.identifier() == s_p.identifier()
+                feature_fn(u), feature_fn(s_p), a, u.identifier() == s_p.identifier()
             )
         abstract_graph.set_reachable(feature_fn(s_p))
 
@@ -61,7 +62,7 @@ if __name__ == "__main__":
                 feature_fn=feature_fn,
                 spec=args.spec,
                 args=args,
-                show_if_unsat=False,
+                show_if_unsat=True,
             )
             count += 1
             traces.append((sat, trace))
@@ -81,12 +82,12 @@ if __name__ == "__main__":
         print(f"CEGIS Epoch: {cegis_epochs}, Counterexample found at Run: {count}")
 
         for sat, tau in traces:
-            for s, a, s_p in tau:
+            for u, a, s_p in tau:
                 abstract_graph.add_edge(
-                    feature_fn(s),
+                    feature_fn(u),
                     feature_fn(s_p),
                     a,
-                    s.identifier() == s_p.identifier(),
+                    u.identifier() == s_p.identifier(),
                 )
             if sat:
                 abstract_graph.set_reachable(feature_fn(s_p))
@@ -144,5 +145,5 @@ if __name__ == "__main__":
         if not is_trace_reaching:
             raise Exception("What!")
 
-        # decisions = get_decisions(abstract_graph, args.spec)
-        decisions = get_decisions_reachability(abstract_graph, target_feats)
+        decisions = get_decisions(abstract_graph, args.spec)
+        # decisions = get_decisions_reachability(abstract_graph, target_feats)
